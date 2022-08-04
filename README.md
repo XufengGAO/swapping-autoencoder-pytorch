@@ -168,6 +168,6 @@ If you use this code for your research, please cite our paper:
   year={2020}
 }
 ```
-## Acknowledgment
+## Acknowledgmentss
 
 The StyleGAN2 layers heavily borrows (or rather, directly copies!) the PyTorch implementation of [@rosinality](https://github.com/rosinality/stylegan2-pytorch). We thank Nicholas Kolkin for the helpful discussion on the automated content and style evaluation, Jeongo Seo and Yoseob Kim for advice on the user interface, and William T. Peebles, Tongzhou Wang, and Yu Sun for the discussion on disentanglement.
