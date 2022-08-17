@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#SBATCH --job-name=test
+#SBATCH --chdir /scratch/izar/xugao/testresults
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --partition=gpu
+#SBATCH --qos=gpu_free
+#SBATCH --gres=gpu:1
+#SBATCH --mem=100GB
+#SBATCH --time=30:00
+#SBATCH --output test_%j.out
+
+echo "hello from `hostname`"
+
+source /home/xugao/venvs/venv-for-demo/bin/activate
+cd /home/xugao/gitRepo/swapping-autoencoder-pytorch
+python -m experiments --name nightVision --cmd train --id nightVision_default
+
+echo "Bye from `hostname`"
+

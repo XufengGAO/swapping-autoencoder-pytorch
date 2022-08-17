@@ -3,7 +3,7 @@ experiment launcher using tmux panes
 """
 import os
 import math 
-#import GPUtil  TODO: uncomment
+import GPUtil
 import re
 
 available_gpu_devices = None
@@ -135,9 +135,7 @@ class TmuxLauncher():
         global available_gpu_devices
         if available_gpu_devices is None and gpu_id is None:
             # available gpu in this computer
-            # available_gpu_devices = [str(g) for g in GPUtil.getAvailable(limit=8, maxMemory=0.2)] TODO: uncomment
-            available_gpu_devices = [str(g) for g in range(num_gpus)]
-            None
+            available_gpu_devices = [str(g) for g in GPUtil.getAvailable(limit=8, maxMemory=0.2)]
         if gpu_id is not None:
             available_gpu_devices = [i for i in str(gpu_id)]
         if len(available_gpu_devices) < num_gpus:
@@ -269,3 +267,4 @@ class TmuxLauncher():
     def gather_metrics(self, ids, mode, name):
         from .plotter import gather_metrics
         gather_metrics(self, ids, mode, name)
+        
