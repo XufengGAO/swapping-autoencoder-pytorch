@@ -77,7 +77,7 @@ class Visualizer():
         self.win_size = opt.crop_size
         self.name = opt.name
         self.port = opt.display_port
-        self.saved = False
+        self.saved = False 
         if self.display_id > 0:
             # connect to a visdom server
             import visdom

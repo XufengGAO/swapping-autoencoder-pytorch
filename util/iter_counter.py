@@ -7,6 +7,7 @@ import time
 class IterationCounter():
     @staticmethod
     def modify_commandline_options(parser, is_train):
+        # actual step = default/batch_size
         parser.add_argument("--total_nimgs", default=25 *
                             (1000 ** 2), type=int)
         parser.add_argument("--save_freq", default=50000, type=int)
@@ -19,8 +20,9 @@ class IterationCounter():
         self.opt = opt
         self.iter_record_path = os.path.join(
             self.opt.checkpoints_dir, self.opt.name, 'iter.txt')
+            
         self.steps_so_far = 0
-        if "unaligned" in opt.dataset_mode:
+        if "unaligned" in opt.dataset_mode: 
             self.batch_size = opt.batch_size * 2
         else:
             self.batch_size = opt.batch_size
@@ -28,9 +30,11 @@ class IterationCounter():
 
         automatically_find_resume_iter = opt.isTrain and opt.continue_train \
             and opt.resume_iter == "latest" and opt.pretrained_name is None
+
         resume_at_specified_iter = opt.isTrain and opt.continue_train \
-            and opt.resume_iter.replace("k", "").isnumeric()
-        if automatically_find_resume_iter:
+            and opt.resume_iter.replace("k", "").isnumeric()  # checks if every character of variable is numeric 
+
+        if automatically_find_resume_iter:  # resume from file
             try:
                 self.steps_so_far = np.loadtxt(
                     self.iter_record_path, delimiter=',', dtype=int)
@@ -38,12 +42,12 @@ class IterationCounter():
             except Exception:
                 print('Could not load iteration record at %s. '
                       'Starting from beginning.' % self.iter_record_path)
-        elif resume_at_specified_iter:
+        elif resume_at_specified_iter:  # resume at specific step
             steps = int(opt.resume_iter.replace("k", ""))
             if "k" in opt.resume_iter:
                 steps *= 1000
             self.steps_so_far = steps
-        else:
+        else:  # from begining
             self.steps_so_far = 0
 
     def record_one_iteration(self):
@@ -80,7 +84,7 @@ class IterationCounter():
         def __exit__(self, type, value, traceback):
             torch.cuda.synchronize()
             start_time = self.start_time
-            elapsed_time = (time.time() - start_time) / self.parent.batch_size
+            elapsed_time = (time.time() - start_time) / self.parent.batch_size  # time for per sample
 
             if self.name not in self.parent.time_measurements:
                 self.parent.time_measurements[self.name] = elapsed_time

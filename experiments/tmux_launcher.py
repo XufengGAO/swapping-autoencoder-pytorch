@@ -2,13 +2,13 @@
 experiment launcher using tmux panes
 """
 import os
-import math
-import GPUtil
+import math 
+#import GPUtil  TODO: uncomment
 import re
 
 available_gpu_devices = None
 
-
+# Basic option class
 class Options():
     def __init__(self):
         self.args = []
@@ -38,6 +38,7 @@ class Options():
         return self
 
     def __str__(self):
+        # concatenate all arguments to a long string
         final = " ".join(self.args)
         for k, v in self.kvs.items():
             final += " --{} {}".format(k, v)
@@ -52,6 +53,7 @@ class Options():
         return opt
 
     def specify(self, *args, **kwargs):
+        # clone existing parameters, add new ones
         return self.clone().set(*args, **kwargs)
     
     def tag(self, tag):
@@ -82,20 +84,22 @@ class TmuxLauncher():
         self.tmux_prepared = False
 
     def commands(self):
-        opts = self.train_options()
-        return ["python train.py " + str(opt) for opt in opts]
+        opts = self.train_options()  # a list of opts
+        # str(opt) is a defiend function in Options()
+        # it will concatenate the arguments+value, like --xx xx --xx xx
+        return ["python faketrain.py " + str(opt) for opt in opts] 
 
     def test_commands(self):
         opts = self.test_options()
         return ["python test.py " + str(opt) for opt in opts]
 
-    def options(self):
+    def options(self):  # See child class for specific implementation
         return []
 
-    def train_options(self):
+    def train_options(self):   # See child class for specific implementation
         return self.options()
 
-    def test_options(self):
+    def test_options(self):   # See child class for specific implementation
         return self.options()
     
     def find_tag(self, options, tag):
@@ -130,7 +134,10 @@ class TmuxLauncher():
 
         global available_gpu_devices
         if available_gpu_devices is None and gpu_id is None:
-            available_gpu_devices = [str(g) for g in GPUtil.getAvailable(limit=8, maxMemory=0.2)]
+            # available gpu in this computer
+            # available_gpu_devices = [str(g) for g in GPUtil.getAvailable(limit=8, maxMemory=0.2)] TODO: uncomment
+            available_gpu_devices = [str(g) for g in range(num_gpus)]
+            None
         if gpu_id is not None:
             available_gpu_devices = [i for i in str(gpu_id)]
         if len(available_gpu_devices) < num_gpus:
@@ -140,12 +147,13 @@ class TmuxLauncher():
             resume_iter = " --resume_iter %s " % resume_iter
         else:
             resume_iter = ""
+        # insert additional commands: gpu_available and resume_iter
         command = "CUDA_VISIBLE_DEVICES={} {} {}".format(active_devices, command, resume_iter)
         if continue_train:
             command += " --continue_train "
 
         # available_gpu_devices = [str(g) for g in GPUtil.getAvailable(limit=8, maxMemory=0.8)]
-        available_gpu_devices = available_gpu_devices[num_gpus:]
+        # available_gpu_devices = available_gpu_devices[num_gpus:]
 
         return command
 
@@ -168,14 +176,14 @@ class TmuxLauncher():
             ids = [ids]
 
         for id in ids:
-            this_command = command[id]
+            this_command = command[id]  # select one specific command
             refined_command = self.refine_command(this_command, resume_iter, continue_train=continue_train, gpu_id=gpu_id)
             num_repeats = 1
             for trial_id in range(num_repeats):
                 if trial_id > 0:
                     print("Running the command again since last command returned nonzero")
                 print(refined_command)
-                result = os.system(refined_command)
+                result = os.system(refined_command)  # input command to system
                 if result == 0:
                     break
 

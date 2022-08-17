@@ -24,12 +24,12 @@ def find_launcher_using_name(launcher_name):
 
 
 if __name__ == "__main__":
-    import argparse
+    import argparse # Command-line parsing library
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('name')
-    parser.add_argument('cmd')
-    parser.add_argument('id', nargs='+', type=str)
+    parser = argparse.ArgumentParser()  # Without -- meaning positional, No key required
+    parser.add_argument('name')         # launcher name
+    parser.add_argument('cmd')          # train OR test
+    parser.add_argument('id', nargs='+', type=str) # name of opt.specify in train
     parser.add_argument('--mode', default=None)
     parser.add_argument('--resume_iter', default=None)
     parser.add_argument('--continue_train', action='store_true')
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('--phase', default='test')
     
 
-    opt = parser.parse_args()
+    opt = parser.parse_args()  # only return recognized arguments
 
     name = opt.name
     Launcher = find_launcher_using_name(name)
@@ -75,21 +75,22 @@ if __name__ == "__main__":
         expid = ids[0]
         for expid in ids:
             if type(expid) == str and (not expid.isnumeric()):
-                expid = instance.find_tag(instance.train_options(), expid)
+                expid = instance.find_tag(instance.train_options(), expid)  # return the list_index of opt having same name as expid(str) 
             else:
                 expid = int(expid)
+        # run the command
         instance.run_command(instance.commands(), expid,
                              continue_train=opt.continue_train,
                              gpu_id=opt.gpu_id)
     elif cmd == 'launch_test':
         instance.launch(ids, test=True)
     elif cmd == "test":
-        test_commands = instance.test_commands()
+        test_commands = instance.test_commands()  #return command line string
         if "all" in ids and len(ids) == 1:
             ids = list(range(len(test_commands)))
         for expid in ids:
             if type(expid) == str and (not expid.isnumeric()):
-                expid = instance.find_tag(instance.test_options(), expid)
+                expid = instance.find_tag(instance.test_options(), expid) # same as above case
             else:
                 expid = int(expid)
             instance.run_command(test_commands, expid, opt.resume_iter,

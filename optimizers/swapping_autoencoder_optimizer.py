@@ -28,11 +28,11 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         self.train_mode_counter = 0
         self.discriminator_iter_counter = 0
 
-        self.Gparams = self.model.get_parameters_for_mode("generator")
-        self.Dparams = self.model.get_parameters_for_mode("discriminator")
+        self.Gparams = self.model.get_parameters_for_mode("generator")      # list parameters: self.G, self.E
+        self.Dparams = self.model.get_parameters_for_mode("discriminator")  # self.D, self.patchD
 
         self.optimizer_G = torch.optim.Adam(
-            self.Gparams, lr=opt.lr, betas=(opt.beta1, opt.beta2)
+            self.Gparams, lr=opt.lr, betas=(opt.beta1, opt.beta2)   # see above
         )
 
         # c.f. StyleGAN2 (https://arxiv.org/abs/1912.04958) Appendix B
@@ -48,7 +48,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         for p in params:
             p.requires_grad_(requires_grad)
 
-    def prepare_images(self, data_i):
+    def prepare_images(self, data_i):   # return batch tensor
         return data_i["real_A"]
 
     def toggle_training_mode(self):
@@ -66,7 +66,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
 
     def train_generator_one_step(self, images):
         self.set_requires_grad(self.Dparams, False)
-        self.set_requires_grad(self.Gparams, True)
+        self.set_requires_grad(self.Gparams, True)  # only record G's gradient
         sp_ma, gl_ma = None, None
         self.optimizer_G.zero_grad()
         g_losses, g_metrics = self.model(
@@ -81,23 +81,23 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
     def train_discriminator_one_step(self, images):
         if self.opt.lambda_GAN == 0.0 and self.opt.lambda_PatchGAN == 0.0:
             return {}
-        self.set_requires_grad(self.Dparams, True)
+        self.set_requires_grad(self.Dparams, True)  # only record D's gradients
         self.set_requires_grad(self.Gparams, False)
         self.discriminator_iter_counter += 1
         self.optimizer_D.zero_grad()
         d_losses, d_metrics, sp, gl = self.model(
             images, command="compute_discriminator_losses"
         )
-        self.previous_sp = sp.detach()
+        self.previous_sp = sp.detach()  # record the calculated sp/gl, and detach it (just store values)
         self.previous_gl = gl.detach()
         d_loss = sum([v.mean() for v in d_losses.values()])
-        d_loss.backward()
+        d_loss.backward()   # backward D, G, E, but below just step D, so no worries to G and E
         self.optimizer_D.step()
 
         needs_R1 = self.opt.lambda_R1 > 0.0 or self.opt.lambda_patch_R1 > 0.0
         needs_R1_at_current_iter = needs_R1 and \
             self.discriminator_iter_counter % self.opt.R1_once_every == 0
-        if needs_R1_at_current_iter:
+        if needs_R1_at_current_iter:        # R1 regularization
             self.optimizer_D.zero_grad()
             r1_losses = self.model(images, command="compute_R1_loss")
             d_losses.update(r1_losses)

@@ -43,6 +43,6 @@ def create_optimizer(opt, model):
         >>> from optimizers import create_optimizer
         >>> optimizer = create_optimizer(opt)
     """
-    optimizer = find_optimizer_using_name(opt.optimizer)
-    instance = optimizer(model)
+    optimizer = find_optimizer_using_name(opt.optimizer)    # default: swapping_autoencoder_optimiyer
+    instance = optimizer(model) # create optimizer istance
     return instance

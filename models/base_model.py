@@ -3,6 +3,8 @@ import torch
 
 
 class BaseModel(torch.nn.Module):
+    # we don't want subclasses of a class change/override 
+    # a specific implementation of a method
     @staticmethod
     def modify_commandline_options(parser, is_train):
         return parser
@@ -38,7 +40,10 @@ class BaseModel(torch.nn.Module):
         sympath = os.path.join(savedir, "latest_checkpoint.pth")
         if os.path.exists(sympath):
             os.remove(sympath)
-        os.symlink(checkpoint_name, sympath)
+        os.symlink(checkpoint_name, sympath)  
+        # To create a symbolic link at mylink that points to a file 
+        # or directory target mytarget, we can write：  
+        # os.symlink( 'mytarget', 'mylink' )
 
     def load(self):
         if self.opt.isTrain and self.opt.pretrained_name is not None:

@@ -28,7 +28,7 @@ def find_dataset_using_name(dataset_name):
 
     dataset = None
     target_dataset_name = dataset_name.replace('_', '') + 'dataset'
-    for name, cls in datasetlib.__dict__.items():
+    for name, cls in datasetlib.__dict__.items():   # check all attributes in file, take the corresponding class
         if name.lower() == target_dataset_name.lower() \
            and issubclass(cls, BaseDataset):
             dataset = cls
@@ -45,7 +45,7 @@ def get_option_setter(dataset_name):
     return dataset_class.modify_commandline_options
 
 
-def create_dataset(opt):
+def create_dataset(opt):  #导入数据第一个运用的函数
     return ConfigurableDataLoader(opt)
 
 
@@ -88,9 +88,10 @@ class ConfigurableDataLoader():
         self.phase = phase
         if hasattr(self, "dataloader"):
             del self.dataloader
-        dataset_class = find_dataset_using_name(opt.dataset_mode)
-        dataset = dataset_class(util.copyconf(opt, phase=phase, isTrain=phase == "train"))
-        shuffle = phase == "train" if opt.shuffle_dataset is None else opt.shuffle_dataset == "true"
+        dataset_class = find_dataset_using_name(opt.dataset_mode)  # return dataset class
+        dataset = dataset_class(util.copyconf(opt, phase=phase, isTrain=phase == "train"))  # Set two attributes with specified values with util.copyconf() function
+                                                                                            # Then create a dataset_class(opt) instance
+        shuffle = phase == "train" if opt.shuffle_dataset is None else opt.shuffle_dataset == "true"  # shuffle
         print("dataset [%s] of size %d was created. shuffled=%s" % (type(dataset).__name__, len(dataset), shuffle))
         #dataset = DataPrefetcher(dataset)
         self.opt = opt
@@ -101,9 +102,13 @@ class ConfigurableDataLoader():
             num_workers=int(opt.num_gpus),
             drop_last=phase == "train",
         )
+        # The drop_last=True parameter ignores the last batch 
+        # (when the number of examples in your dataset is not divisible by 
+        # your batch_size ) while drop_last=False will make the last batch smaller than your batch_size
+
         #self.dataloader = dataset
-        self.dataloader_iterator = iter(self.dataloader)
-        self.repeat = phase == "train"
+        self.dataloader_iterator = iter(self.dataloader)  # return iterator
+        self.repeat = phase == "train"  # use data repeatly if training is not finished, see __next()__
         self.length = len(dataset)
         self.underlying_dataset = dataset
 
@@ -111,7 +116,7 @@ class ConfigurableDataLoader():
         if self.phase != target_phase:
             self.initialize(target_phase)
 
-    def __iter__(self):
+    def __iter__(self):  # used with __next__(__iter(self)==self)
         self.dataloader_iterator = iter(self.dataloader)
         return self
 
@@ -121,7 +126,7 @@ class ConfigurableDataLoader():
     def __next__(self):
         try:
             return next(self.dataloader_iterator)
-        except StopIteration:
+        except StopIteration:   # repeat or not
             if self.repeat:
                 self.dataloader_iterator = iter(self.dataloader)
                 return next(self.dataloader_iterator)

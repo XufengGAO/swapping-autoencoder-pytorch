@@ -39,8 +39,8 @@ def modify_commandline_options(parser, is_train):
 def create_network(opt, network_name, mode, verbose=True):
     if network_name is None:
         return None
-    net_cls = find_network_using_name(network_name, mode)
-    net = net_cls(opt)
+    net_cls = find_network_using_name(network_name, mode)   # find network class
+    net = net_cls(opt)  # create network instance
     if verbose:
         net.print_architecture(verbose=True)
     return net

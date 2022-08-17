@@ -33,13 +33,16 @@ def find_model_using_name(model_name):
     and it is case-insensitive.
     """
     model_filename = "models." + model_name + "_model"
+    
     modellib = importlib.import_module(model_filename)
+
     model = None
     target_model_name = model_name.replace('_', '') + 'model'
     for name, cls in modellib.__dict__.items():
         if name.lower() == target_model_name.lower() \
            and issubclass(cls, BaseModel):
             model = cls
+        print("Successfully import model:", type(model))
 
     if model is None:
         print("In %s.py, there should be a subclass of BaseModel with class name that matches %s in lowercase." % (model_filename, target_model_name))
@@ -64,8 +67,9 @@ def create_model(opt):
         >>> from models import create_model
         >>> model = create_model(opt)
     """
-    model = find_model_using_name(opt.model)
-    instance = model(opt)
+    model = find_model_using_name(opt.model)    # find the model.py file, here the swapping_autoencoder 
+                                                # return model class
+    instance = model(opt)   # define a model instance
     instance.initialize()
     multigpu_instance = MultiGPUModelWrapper(opt, instance)
     print("model [%s] was created" % type(instance).__name__)
@@ -78,17 +82,17 @@ class MultiGPUModelWrapper():
         if opt.num_gpus > 0:
             model = model.to('cuda:0')
         self.parallelized_model = torch.nn.parallel.DataParallel(model)
-        self.parallelized_model(command="per_gpu_initialize")
-        self.singlegpu_model = self.parallelized_model.module
-        self.singlegpu_model(command="per_gpu_initialize")
+        self.parallelized_model(command="per_gpu_initialize")   # models in all gpu's forward()
+        self.singlegpu_model = self.parallelized_model.module   # access the main model (in gpu0)
+        self.singlegpu_model(command="per_gpu_initialize")      # the main model (in gpu0)'s forward()
 
     def get_parameters_for_mode(self, mode):
-        return self.singlegpu_model.get_parameters_for_mode(mode)
+        return self.singlegpu_model.get_parameters_for_mode(mode)   # return list parameters of mode (network type)
 
-    def save(self, total_steps_so_far):
-        self.singlegpu_model.save(total_steps_so_far)
+    def save(self, total_steps_so_far):  # save parameters
+        self.singlegpu_model.save(total_steps_so_far)   # here we store the main model parameters, not the parallel one 
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs): # forward()
         """ Calls are forwarded to __call__ of BaseModel through DataParallel, and corresponding methods specified by |command| will be called. Please see BaseModel.forward() to see how it is done. """
         return self.parallelized_model(*args, **kwargs)
 

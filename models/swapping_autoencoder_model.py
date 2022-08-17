@@ -24,26 +24,30 @@ class SwappingAutoencoderModel(BaseModel):
         return parser
 
     def initialize(self):
-        self.E = networks.create_network(self.opt, self.opt.netE, "encoder")
-        self.G = networks.create_network(self.opt, self.opt.netG, "generator")
-        if self.opt.lambda_GAN > 0.0:
+        # return network instances
+        self.E = networks.create_network(self.opt, self.opt.netE, "encoder")    # opt.netE="StyleGAN2Resnet" + "encoder"
+        self.G = networks.create_network(self.opt, self.opt.netG, "generator")  # opt.netG="StyleGAN2Resnet" + "generator"
+        if self.opt.lambda_GAN > 0.0:       # already added in gather_options()
             self.D = networks.create_network(
-                self.opt, self.opt.netD, "discriminator")
-        if self.opt.lambda_PatchGAN > 0.0:
-            self.Dpatch = networks.create_network(
-                self.opt, self.opt.netPatchD, "patch_discriminator"
+                self.opt, self.opt.netD, "discriminator")   # opt.netD="StyleGAN2" + "discriminator"
+        if self.opt.lambda_PatchGAN > 0.0:  # already added in gather_options()
+            self.Dpatch = networks.create_network(          # opt.netPatchD="StyleGAN2" + "patch_discriminator" 
+                self.opt, self.opt.netPatchD, "patch_discriminator" 
             )
 
         # Count the iteration count of the discriminator
         # Used for lazy R1 regularization (c.f. Appendix B of StyleGAN2)
+        # all non-required gradient tensor created by register_buffer
         self.register_buffer(
             "num_discriminator_iters", torch.zeros(1, dtype=torch.long)
         )
-        self.l1_loss = torch.nn.L1Loss()
+        self.l1_loss = torch.nn.L1Loss()    # reconstruction loss
 
+        # load check_point file
         if (not self.opt.isTrain) or self.opt.continue_train:
             self.load()
 
+        # model to gpu
         if self.opt.num_gpus > 0:
             self.to("cuda:0")
 
@@ -84,6 +88,8 @@ class SwappingAutoencoderModel(BaseModel):
     def get_random_crops(self, x, crop_window=None):
         """ Make random crops.
             Corresponds to the yellow and blue random crops of Figure 2.
+
+            Output tensor = (batch size, num_crops, channel, height, width)
         """
         crops = util.apply_random_crop(
             x, self.opt.patch_size,
@@ -116,20 +122,20 @@ class SwappingAutoencoderModel(BaseModel):
     def compute_discriminator_losses(self, real):
         self.num_discriminator_iters.add_(1)
 
-        sp, gl = self.E(real)
-        B = real.size(0)
+        sp, gl = self.E(real)   # encoder forward with real images, return strucure code and global code for each sample
+        B = real.size(0)        # check if batch size is even
         assert B % 2 == 0, "Batch size must be even on each GPU."
 
         # To save memory, compute the GAN loss on only
         # half of the reconstructed images
-        rec = self.G(sp[:B // 2], gl[:B // 2])
-        mix = self.G(self.swap(sp), gl)
+        rec = self.G(sp[:B // 2], gl[:B // 2])  # here sp and gl are pairs, half of them are input to generator to get reconstructed images
+        mix = self.G(self.swap(sp), gl)         # swap the orderof two continious sps, get the mix images, all resultant sp/gl are mixed
 
-        losses = self.compute_image_discriminator_losses(real, rec, mix)
+        losses = self.compute_image_discriminator_losses(real, rec, mix)    # self.D loss = "D_real", "D_rec" and "D_mix"
 
         if self.opt.lambda_PatchGAN > 0.0:
-            patch_losses = self.compute_patch_discriminator_losses(real, mix)
-            losses.update(patch_losses)
+            patch_losses = self.compute_patch_discriminator_losses(real, mix) # self.Dpatch loss = "PatchD_real" and "PatchD_mix"
+            losses.update(patch_losses) # add path_losses into losses dict
 
         metrics = {}  # no metrics to report for the Discriminator iteration
 
@@ -263,7 +269,7 @@ class SwappingAutoencoderModel(BaseModel):
     def decode(self, spatial_code, global_code):
         return self.G(spatial_code, global_code)
 
-    def get_parameters_for_mode(self, mode):
+    def get_parameters_for_mode(self, mode):    # return network parameters
         if mode == "generator":
             return list(self.G.parameters()) + list(self.E.parameters())
         elif mode == "discriminator":

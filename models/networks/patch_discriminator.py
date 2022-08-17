@@ -144,10 +144,10 @@ class StyleGAN2PatchDiscriminator(BasePatchDiscriminator):
         self.pairlinear = nn.Sequential(pairlinear1, pairlinear2, pairlinear3, pairlinear4)
 
     def extract_features(self, patches, aggregate=False):
-        if patches.ndim == 5:
+        if patches.ndim == 5:   # for reference patches
             B, T, C, H, W = patches.size()
             flattened_patches = patches.flatten(0, 1)
-        else:
+        else:                   # for real/fake patch
             B, C, H, W = patches.size()
             T = patches.size(1)
             flattened_patches = patches

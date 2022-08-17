@@ -5,12 +5,14 @@ from data.base_dataset import BaseDataset, get_transform
 import torchvision
 
 
-class CIFAR100Dataset(BaseDataset):
+class CIFAR100Datimpaset(BaseDataset):
     @staticmethod
     def modify_commandline_options(parser, is_train):
+        # 直接添加参数
         parser.set_defaults(load_size=32, crop_size=32, preprocess_crop_padding=0,
                             preprocess='crop', num_classes=100, use_class_labels=True)
         opt, _ = parser.parse_known_args()
+        # 验证是否添加成功
         assert opt.preprocess == 'crop' and opt.load_size == 32 and opt.crop_size == 32
         return parser
 

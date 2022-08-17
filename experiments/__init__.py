@@ -9,9 +9,9 @@ if __name__ == "__main__":
     import sys
     import pickle
 
-    assert len(sys.argv) >= 3
-    
-    name = sys.argv[1]
+    assert len(sys.argv) >= 3 
+
+    name = sys.argv[1]          # launcher name
     Launcher = find_launcher_using_name(name)
 
     cache = "/tmp/tmux_launcher/{}".format(name)

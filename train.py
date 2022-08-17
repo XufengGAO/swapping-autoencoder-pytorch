@@ -8,23 +8,25 @@ from util import MetricTracker
 from evaluation import GroupEvaluator
 
 
-opt = TrainOptions().parse()
-dataset = data.create_dataset(opt)
-opt.dataset = dataset
-iter_counter = IterationCounter(opt)
-visualizer = Visualizer(opt)
-metric_tracker = MetricTracker(opt)
-evaluators = GroupEvaluator(opt)
+opt = TrainOptions().parse()        # return a Namespace including all required arguments
+dataset = data.create_dataset(opt)  # return a ConfigurableDataLoader()
+opt.dataset = dataset               # set it as a attribute
 
-model = models.create_model(opt)
-optimizer = optimizers.create_optimizer(opt, model)
+iter_counter = IterationCounter(opt)    # counter instance
+visualizer = Visualizer(opt)            # visulaizer instance
+metric_tracker = MetricTracker(opt)
+evaluators = GroupEvaluator(opt)        # a number of evaluators
+
+model = models.create_model(opt)    # return a multigpu_instance of SAE
+optimizer = optimizers.create_optimizer(opt, model) # return a SAE_optimizer instance 
 
 while not iter_counter.completed_training():
-    with iter_counter.time_measurement("data"):
-        cur_data = next(dataset)
+    with iter_counter.time_measurement("data"): # time for loading one batch of data
+        cur_data = next(dataset)    # one batch of data, dict('real_A'=data, 'path_A'=path_list)
 
-    with iter_counter.time_measurement("train"):
-        losses = optimizer.train_one_step(cur_data, iter_counter.steps_so_far)
+    with iter_counter.time_measurement("train"): # time for training one step
+        losses = optimizer.train_one_step(cur_data, iter_counter.steps_so_far)  # D first, then G, then D again, ...
+                                                                                # a dict recording different loss values
         metric_tracker.update_metrics(losses, smoothe=True)
 
     with iter_counter.time_measurement("maintenance"):
@@ -40,7 +42,7 @@ while not iter_counter.completed_training():
 
         if iter_counter.needs_evaluation():
             metrics = evaluators.evaluate(
-                model, dataset, iter_counter.steps_so_far)
+                model, dataset, iter_counter.steps_so_far)  # evaluate the model performance
             metric_tracker.update_metrics(metrics, smoothe=False)
 
         if iter_counter.needs_saving():
@@ -53,3 +55,5 @@ while not iter_counter.completed_training():
 
 optimizer.save(iter_counter.steps_so_far)
 print('Training finished.')
+
+

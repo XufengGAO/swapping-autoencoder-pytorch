@@ -33,7 +33,6 @@ def find_evaluator_classes(opt):
 
         metric_class = find_evaluator_using_name("%s_evaluator" % metric)
         all_classes.append(metric_class)
-
     return all_classes, target_phases
 
 
@@ -43,10 +42,11 @@ class GroupEvaluator(BaseEvaluator):
         parser.add_argument("--evaluation_metrics", default="none")
 
         opt, _ = parser.parse_known_args()
-        evaluator_classes, _ = find_evaluator_classes(opt)
+    
+        evaluator_classes, _ = find_evaluator_classes(opt)  # allow using multiple evaluator
 
         for eval_class in evaluator_classes:
-            parser = eval_class.modify_commandline_options(parser, is_train)
+            parser = eval_class.modify_commandline_options(parser, is_train)    # add arguments for each evaluator
 
         return parser
 

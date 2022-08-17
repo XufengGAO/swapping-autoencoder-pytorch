@@ -86,18 +86,18 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
     transform_list = []
     if grayscale:
         transform_list.append(transforms.Grayscale(1))
-    if 'fixsize' in opt.preprocess:
+    if 'fixsize' in opt.preprocess: # scale the image to (height = crop_size, width = load_size)
         transform_list.append(transforms.Resize((opt.crop_size, opt.load_size), method))
-    if 'resize' in opt.preprocess:
+    if 'resize' in opt.preprocess:  # scale the image to (height = width = load_size)
         osize = [opt.load_size, opt.load_size]
         if "gta2cityscapes" in opt.dataroot:
             osize[0] = opt.load_size // 2
         transform_list.append(transforms.Resize(osize, method))
-    elif 'scale_width' in opt.preprocess:
+    elif 'scale_width' in opt.preprocess:       # scale the image width to load_size
         transform_list.append(transforms.Lambda(lambda img: __scale_width(img, opt.load_size, opt.crop_size, method)))
-    elif 'scale_shortside' in opt.preprocess:
+    elif 'scale_shortside' in opt.preprocess:   # scale the shortside to load_size
         transform_list.append(transforms.Lambda(lambda img: __scale_shortside(img, opt.load_size, opt.crop_size, method)))
-    elif 'scale_longside' in opt.preprocess:
+    elif 'scale_longside' in opt.preprocess:    # scale the longside to load_size
         transform_list.append(transforms.Lambda(lambda img: __scale_longside(img, opt.load_size, opt.crop_size, method)))
         
 
@@ -114,7 +114,8 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
         transform_list.append(transforms.Lambda(lambda img: __centercrop(img)))
     elif 'crop' in opt.preprocess:
         if params is None or 'crop_pos' not in params:
-            transform_list.append(transforms.RandomCrop(opt.crop_size, padding=opt.preprocess_crop_padding))
+            # random square crop to (crop_size, crop_size)
+            transform_list.append(transforms.RandomCrop(opt.crop_size, padding=opt.preprocess_crop_padding)) 
         else:
             transform_list.append(transforms.Lambda(lambda img: __crop(img, params['crop_pos'], opt.crop_size)))
 
@@ -124,21 +125,21 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
     if 'trim' in opt.preprocess:
         transform_list.append(transforms.Lambda(lambda img: __trim(img, opt.crop_size)))
 
-    #if opt.preprocess == 'none':
+    #if opt.preprocess == 'none': make the width and height to power_2 value
     transform_list.append(transforms.Lambda(lambda img: __make_power_2(img, base=16, method=method)))
 
-    random_flip = opt.isTrain and (not opt.no_flip)
+    random_flip = opt.isTrain and (not opt.no_flip)  # random flip in training
     if random_flip:
         transform_list.append(transforms.RandomHorizontalFlip())
     #elif 'flip' in params:
     #    transform_list.append(transforms.Lambda(lambda img: __flip(img, params['flip'])))
 
     if convert:
-        transform_list += [transforms.ToTensor()]
+        transform_list += [transforms.ToTensor()]   # image to tensors
         if grayscale:
             transform_list += [transforms.Normalize((0.5,), (0.5,))]
         else:
-            transform_list += [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+            transform_list += [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]  # Normalization
     return transforms.Compose(transform_list)
 
 

@@ -1,6 +1,7 @@
 # result files
 *.png
 *.txt
+*.pkl
 
 # ipython notebook files should be manually added after clearning output and kernel
 *.ipynb
@@ -137,3 +138,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+# Dataset folder
+nightVisionDatesets
+SAE_env

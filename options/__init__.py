@@ -35,7 +35,7 @@ class BaseOptions():
         parser.add_argument('--load_size', type=int, default=256, help='Scale images to this size. The final image will be cropped to --crop_size.')
         parser.add_argument('--crop_size', type=int, default=256, help='Crop to the width of crop_size (after initially scaling the images to load_size.)')
         parser.add_argument('--preprocess_crop_padding', type=int, default=None, help='padding parameter of transforms.RandomCrop(). It is not used if --preprocess does not contain crop option.')
-        parser.add_argument('--no_flip', action='store_true')
+        parser.add_argument('--no_flip', action='store_true')   # default = False
         parser.add_argument('--shuffle_dataset', type=str, default=None, choices=('true', 'false'))
 
         # for setting inputs
@@ -52,42 +52,51 @@ class BaseOptions():
 
         return parser
 
-    def gather_options(self, command=None):
-        parser = AugmentedArgumentParser()
-        parser.custom_command = command
+    def gather_options(self, command=None): # gather all arguments
 
-        # get basic options
+        # Default parser
+        parser = AugmentedArgumentParser()
+        parser.custom_command = command     # Add an attribute after initialization
+
+        # Add basic options from initialize()
         parser = self.initialize(parser)
 
-        # get the basic options
-        opt, unknown = parser.parse_known_args()
+        # Get the basic options
+        # parse_known_args() will return valid and invald arguments, opt, unknown
+        # two item tuple containing the populated namespace and the list of remaining argument strings
+        # (Namespace(all attributes and corresponding values, like dict), [list of invalid arguments])
+        opt, unknown = parser.parse_known_args()    # read arguments from os
 
+        
         # modify model-related parser options
         model_name = opt.model
-        model_option_setter = models.get_option_setter(model_name)
-        parser = model_option_setter(parser, self.isTrain)
+        model_option_setter = models.get_option_setter(model_name)  # return model.modify_commandline()
+        parser = model_option_setter(parser, self.isTrain)          # Add arguments provided by model
+                                                            
 
         # modify network-related parser options
-        parser = networks.modify_commandline_options(parser, self.isTrain)
+        parser = networks.modify_commandline_options(parser, self.isTrain) # Add arguments provided by network
 
         # modify optimizer-related parser options
         optimizer_name = opt.optimizer
         optimizer_option_setter = optimizers.get_option_setter(optimizer_name)
-        parser = optimizer_option_setter(parser, self.isTrain)
+        parser = optimizer_option_setter(parser, self.isTrain)          # Add arguments provided by optimizer
+        
+        
 
         # modify dataset-related parser options
         dataset_mode = opt.dataset_mode
         dataset_option_setter = data.get_option_setter(dataset_mode)
-        parser = dataset_option_setter(parser, self.isTrain)
+        parser = dataset_option_setter(parser, self.isTrain)            # Add arguments provided by dataset
 
         # modify parser options related to iteration_counting
-        parser = Visualizer.modify_commandline_options(parser, self.isTrain)
+        parser = Visualizer.modify_commandline_options(parser, self.isTrain)    # TODO
 
         # modify parser options related to iteration_counting
-        parser = IterationCounter.modify_commandline_options(parser, self.isTrain)
+        parser = IterationCounter.modify_commandline_options(parser, self.isTrain)  # TODO
 
         # modify evaluation-related parser options
-        evaluation_option_setter = evaluation.get_option_setter()
+        evaluation_option_setter = evaluation.get_option_setter()               # TODO
         parser = evaluation_option_setter(parser, self.isTrain)
 
         opt, unknown = parser.parse_known_args()
@@ -133,14 +142,14 @@ class BaseOptions():
         with open(file_name + '.pkl', 'wb') as opt_file:
             pickle.dump(opt, opt_file)
 
-    def parse(self, save=False, command=None):
+    def parse(self, save=False, command=None):  # 1st called function, read commands, create opt instance
         opt = self.gather_options(command)
-        opt.isTrain = self.isTrain   # train or test
+        opt.isTrain = self.isTrain  # True(TrainOptions) or False(TestOptions)
         self.print_options(opt)
         if opt.isTrain:
             self.save_options(opt)
 
-        opt.dataroot = os.path.expanduser(opt.dataroot)
+        opt.dataroot = os.path.expanduser(opt.dataroot) # expand ~/, not useful if ./
 
         assert opt.num_gpus <= opt.batch_size, "Batch size must not be smaller than num_gpus"
         return opt

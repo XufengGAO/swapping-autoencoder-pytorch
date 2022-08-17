@@ -55,12 +55,12 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
 
         # Spatial Code refers to the Structure Code, and
         # Global Code refers to the Texture Code of the paper.
-        nchannels = self.nc(self.opt.netE_num_downsampling_sp)
+        nchannels = self.nc(self.opt.netE_num_downsampling_sp) # 512
         self.add_module(
             "ToSpatialCode",
             nn.Sequential(
-                ConvLayer(nchannels, nchannels, 1, activate=True, bias=True),
-                ConvLayer(nchannels, self.opt.spatial_code_ch, kernel_size=1,
+                ConvLayer(nchannels, nchannels, 1, activate=True, bias=True),   # 512 to 512
+                ConvLayer(nchannels, self.opt.spatial_code_ch, kernel_size=1,   # 512 to 8
                           activate=False, bias=True)
             )
         )
@@ -80,7 +80,7 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
         self.add_module(
             "ToGlobalCode",
             nn.Sequential(
-                EqualLinear(nchannels, self.opt.global_code_ch)
+                EqualLinear(nchannels, self.opt.global_code_ch) # to 2048
             )
         )
 
