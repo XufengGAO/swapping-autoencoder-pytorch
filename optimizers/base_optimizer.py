@@ -15,5 +15,5 @@ class BaseOptimizer():
     def get_visuals_for_snapshot(self, data_i):
         return {}
 
-    def save(self, total_steps_so_far):
+    def save(self, epoch, total_steps_so_far):
         pass

@@ -44,6 +44,7 @@ class SwappingAutoencoderModel(BaseModel):
         self.l1_loss = torch.nn.L1Loss()    # reconstruction loss
 
         # load check_point file
+        # if not train or true continue train
         if (not self.opt.isTrain) or self.opt.continue_train:
             self.load()
 
@@ -228,7 +229,7 @@ class SwappingAutoencoderModel(BaseModel):
                 self.get_random_crops(real),
                 aggregate=self.opt.patch_use_aggregation).detach()
             mix_feat = self.Dpatch.extract_features(self.get_random_crops(mix))
-
+            # patchGAN loss
             losses["G_mix"] = loss.gan_loss(
                 self.Dpatch.discriminate_features(real_feat, mix_feat),
                 should_be_classified_as_real=True,

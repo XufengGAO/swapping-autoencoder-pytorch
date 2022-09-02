@@ -6,7 +6,6 @@ def find_launcher_using_name(launcher_name):
     # cur_dir = os.path.dirname(os.path.abspath(__file__))
     # pythonfiles = glob.glob(cur_dir + '/**/*.py')
     launcher_filename = "experiments.{}_launcher".format(launcher_name)
-    print(launcher_filename)
     launcherlib = importlib.import_module(launcher_filename)
 
     # In the file, the class called LauncherNameLauncher() will

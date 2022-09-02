@@ -3,7 +3,7 @@ import os.path
 import random
 from data.base_dataset import BaseDataset, get_transform
 import numpy as np
-from data.image_folder import make_dataset
+from data.image_folder import make_nightVision_dataset
 from PIL import Image
 
 class nightVisionDataset(BaseDataset):
@@ -13,7 +13,7 @@ class nightVisionDataset(BaseDataset):
 
         # Get paths for all dataset images
         self.dir_A = opt.dataroot
-        self.A_paths = sorted(make_dataset(self.dir_A))
+        self.A_paths = sorted(make_nightVision_dataset(self.dir_A))
         self.A_size = len(self.A_paths)
 
         # Get transforms.Compose()
@@ -29,7 +29,7 @@ class nightVisionDataset(BaseDataset):
         try:
             A_img = Image.open(A_path).convert('RGB')
         except OSError as err:
-            print(err)
+            print('getitem_by_path error', err)
             return self.__getitem__(random.randint(0, len(self) - 1))
 
         # apply image transformation
@@ -40,3 +40,4 @@ class nightVisionDataset(BaseDataset):
     # Size of dataset
     def __len__(self):
         return self.A_size
+    

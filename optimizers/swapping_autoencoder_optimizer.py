@@ -49,7 +49,16 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
             p.requires_grad_(requires_grad)
 
     def prepare_images(self, data_i):   # return batch tensor
-        return data_i["real_A"]
+        A = data_i["real_A"] # night
+        if "real_B" in data_i:
+            B = data_i["real_B"] # day
+            A = A[torch.randperm(A.size(0))] # shuffle A
+            B = B[torch.randperm(B.size(0))] # shuffle B
+            c = list(A.shape)
+            c[0] = 2*c[0]
+            A = torch.cat([A, B], dim=1).view(tuple(c))
+
+        return A
 
     def toggle_training_mode(self):
         modes = ["discriminator", "generator"]
@@ -74,7 +83,9 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         )
         g_loss = sum([v.mean() for v in g_losses.values()])
         g_loss.backward()
+        
         self.optimizer_G.step()
+        g_losses["G_total"] = g_loss
         g_losses.update(g_metrics)
         return g_losses
 
@@ -115,5 +126,5 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         with torch.no_grad():
             return self.model(images, command="get_visuals_for_snapshot")
 
-    def save(self, total_steps_so_far):
-        self.model.save(total_steps_so_far)
+    def save(self, epoch, total_steps_so_far):
+        self.model.save(epoch, total_steps_so_far)

@@ -31,5 +31,5 @@ class ClassifierOptimizer(SwappingAutoencoderOptimizer):
         with torch.no_grad():
             return self.model(images, labels, command="get_visuals_for_snapshot")
 
-    def save(self, total_steps_so_far):
-        self.model.save(total_steps_so_far)
+    def save(self, epoch, total_steps_so_far):
+        self.model.save(epoch, total_steps_so_far)

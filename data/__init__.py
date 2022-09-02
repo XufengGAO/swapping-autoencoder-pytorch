@@ -14,6 +14,7 @@ import importlib
 import torch.utils.data
 from data.base_dataset import BaseDataset
 import util
+import os
 
 
 def find_dataset_using_name(dataset_name):
@@ -45,7 +46,7 @@ def get_option_setter(dataset_name):
     return dataset_class.modify_commandline_options
 
 
-def create_dataset(opt):  #导入数据第一个运用的函数
+def create_dataset(opt): 
     return ConfigurableDataLoader(opt)
 
 
@@ -95,11 +96,12 @@ class ConfigurableDataLoader():
         print("dataset [%s] of size %d was created. shuffled=%s" % (type(dataset).__name__, len(dataset), shuffle))
         #dataset = DataPrefetcher(dataset)
         self.opt = opt
+
         self.dataloader = torch.utils.data.DataLoader(
             dataset,
-            batch_size=opt.batch_size,
+            batch_size=opt.real_batch_size,
             shuffle=shuffle,
-            num_workers=int(opt.num_gpus),
+            num_workers=opt.num_gpus,
             drop_last=phase == "train",
         )
         # The drop_last=True parameter ignores the last batch 

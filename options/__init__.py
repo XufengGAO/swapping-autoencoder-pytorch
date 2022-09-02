@@ -1,3 +1,4 @@
+from ast import parse
 import sys
 import argparse
 import shlex
@@ -16,6 +17,10 @@ from util import Visualizer
 
 class BaseOptions():
     def initialize(self, parser):
+        # custom arguments
+        parser.add_argument('--tb_folder', type=str, required=True)
+        parser.add_argument('--real_batch_size', type=int, default=1, help='input batch size')
+        parser.add_argument("--use_unaligned", type=util.str2bool, default=False)
         # experiment specifics
         parser.add_argument('--name', type=str, required=True, help='name of the experiment. It decides where to store samples and models')
         parser.add_argument('--easy_label', type=str, default="")
@@ -90,13 +95,13 @@ class BaseOptions():
         parser = dataset_option_setter(parser, self.isTrain)            # Add arguments provided by dataset
 
         # modify parser options related to iteration_counting
-        parser = Visualizer.modify_commandline_options(parser, self.isTrain)    # TODO
+        parser = Visualizer.modify_commandline_options(parser, self.isTrain)    
 
         # modify parser options related to iteration_counting
-        parser = IterationCounter.modify_commandline_options(parser, self.isTrain)  # TODO
+        parser = IterationCounter.modify_commandline_options(parser, self.isTrain)  
 
         # modify evaluation-related parser options
-        evaluation_option_setter = evaluation.get_option_setter()               # TODO
+        evaluation_option_setter = evaluation.get_option_setter()               
         parser = evaluation_option_setter(parser, self.isTrain)
 
         opt, unknown = parser.parse_known_args()
@@ -139,15 +144,16 @@ class BaseOptions():
                     comment = '\t[default: %s]' % str(default)
                 opt_file.write('{:>25}: {:<30}{}\n'.format(str(k), str(v), comment))
 
-        with open(file_name + '.pkl', 'wb') as opt_file:
-            pickle.dump(opt, opt_file)
+        #with open(file_name + '.pkl', 'wb') as opt_file:
+           #pickle.dump(opt, opt_file)
 
     def parse(self, save=False, command=None):  # 1st called function, read commands, create opt instance
         opt = self.gather_options(command)
         opt.isTrain = self.isTrain  # True(TrainOptions) or False(TestOptions)
-        self.print_options(opt)
-        if opt.isTrain:
-            self.save_options(opt)
+
+        #self.print_options(opt)
+        #if opt.isTrain:
+            #self.save_options(opt)
 
         opt.dataroot = os.path.expanduser(opt.dataroot) # expand ~/, not useful if ./
 
