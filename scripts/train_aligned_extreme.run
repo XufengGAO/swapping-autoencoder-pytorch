@@ -10,7 +10,7 @@
 #SBATCH --mem=350GB
 #SBATCH --time=12:00:00
 #SBATCH --chdir /scratch/izar/xugao/trainLogs
-#SBATCH --output=/scratch/izar/xugao/trainLogs/aligned_extreme_0_%j.out
+#SBATCH --output=/scratch/izar/xugao/trainLogs/aligned_extreme__%j.out
 #SBATCH --error=/scratch/izar/xugao/trainLogs/aligned_extreme_0_%j.err
 
 module load gcc cuda
