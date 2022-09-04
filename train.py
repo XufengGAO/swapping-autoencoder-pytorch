@@ -50,8 +50,8 @@ visualizer = Visualizer(opt)
 metric_tracker = MetricTracker(opt)
 evaluators = GroupEvaluator(opt)
 
-
-model = models.create_model(opt)
+prepare_data = next(dataset) 
+model = models.create_model(opt, prepare_data)
 optimizer = optimizers.create_optimizer(opt, model)
 
 # print encoder structure
