@@ -32,7 +32,7 @@ tb_writer = SummaryWriter(log_dir=opt.tb_folder)
 
 print('One epoch includes {} batches'.format(len(dataset.dataloader)))  # one epoch 2040 batches
 
-num_epoch = 53
+num_epoch = 200
 opt.total_nimgs = num_epoch * len(dataset.dataloader) * opt.real_batch_size  # train epochs in total
 opt.save_freq = len(dataset.dataloader) * opt.real_batch_size       # save the model per epoch
 opt.evaluation_freq = len(dataset.dataloader) * opt.real_batch_size # evaluate the model per epoch
@@ -54,7 +54,37 @@ evaluators = GroupEvaluator(opt)
 model = models.create_model(opt)
 optimizer = optimizers.create_optimizer(opt, model)
 
-"""
+# print encoder structure
+print("------FromRGB-----")
+print(len(model.singlegpu_model.E.FromRGB))
+for layer_id, layer in enumerate(model.singlegpu_model.E.FromRGB):
+    print(layer_id, layer)
+
+print("------DownToSpatialCode-----")
+print(len(model.singlegpu_model.E.DownToSpatialCode))
+for layer_id, layer in enumerate(model.singlegpu_model.E.DownToSpatialCode):
+    print(layer_id, layer)
+
+print("------ToSpatialCode (sp)-----")
+print(len(model.singlegpu_model.E.ToSpatialCode))
+for layer_id, layer in enumerate(model.singlegpu_model.E.ToSpatialCode):
+    print(layer_id, layer)
+
+print("------DownToGlobalCode-----")
+print(len(model.singlegpu_model.E.DownToGlobalCode))
+for layer_id, layer in enumerate(model.singlegpu_model.E.DownToGlobalCode):
+    print(layer_id, layer)
+
+print("------ToGlobalCode-----")
+print(len(model.singlegpu_model.E.ToGlobalCode))
+for layer_id, layer in enumerate(model.singlegpu_model.E.ToGlobalCode):
+    print(layer_id, layer)
+
+print("-------ToStructureModel-------")
+print(len(model.singlegpu_model.E.ToStructureModel))
+for layer_id, layer in enumerate(model.singlegpu_model.E.ToStructureModel):
+    print(layer_id, layer)
+
 
 while not iter_counter.completed_training():
     with iter_counter.time_measurement("data"):
@@ -110,7 +140,7 @@ np.savetxt(iter_counter.iter_record_path,
 print("End, Saved model at {} epo and {} steps".format(iter_counter.epoch_so_far, iter_counter.steps_so_far))
 optimizer.save(iter_counter.epoch_so_far, iter_counter.steps_so_far) # save the model
 
-"""
+
 print('--------------------Training finished--------------------')
 
 

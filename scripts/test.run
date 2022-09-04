@@ -10,8 +10,8 @@
 #SBATCH --mem=5GB
 #SBATCH --time=00:10:00
 #SBATCH --chdir /scratch/izar/xugao/testLogs
-#SBATCH --output=/scratch/izar/xugao/testLogs/unaligned_%j.out
-#SBATCH --error=/scratch/izar/xugao/testLogs/unaligned__%j.err
+#SBATCH --output=/scratch/izar/xugao/testLogs/test_%j.out
+#SBATCH --error=/scratch/izar/xugao/testLogs/test_%j.err
 
 module load gcc cuda
 echo "Test hello from 'hostname'"
@@ -19,8 +19,8 @@ echo "Test hello from 'hostname'"
 source /home/xugao/venvs/venv-for-demo/bin/activate
 
 cd /home/xugao/gitRepo/swapping-autoencoder-pytorch
-python -m experiments --name nightVision --cmd test --id simple_swapping
-#python -m experiments --name nightVision --cmd test --id simple_interpolation
+# python -m experiments --name nightVision --cmd test --id simple_swapping
+python -m experiments --name nightVision --cmd test --id simple_interpolation
 # python -m experiments --name mountain_pretrained --cmd test --id simple_interpolation
 echo "Test bye from 'hostname'"
 

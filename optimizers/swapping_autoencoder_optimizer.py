@@ -31,6 +31,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         self.Gparams = self.model.get_parameters_for_mode("generator")      # list parameters: self.G, self.E
         self.Dparams = self.model.get_parameters_for_mode("discriminator")  # self.D, self.patchD
 
+
         self.optimizer_G = torch.optim.Adam(
             self.Gparams, lr=opt.lr, betas=(opt.beta1, opt.beta2)   # see above
         )
@@ -40,6 +41,14 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         self.optimizer_D = torch.optim.Adam(
             self.Dparams, lr=opt.lr * c, betas=(opt.beta1 ** c, opt.beta2 ** c)
         )
+
+        # TODO lr and beta values for netF
+        if self.opt.lambda_NCE > 0.0:
+            self.Fparams = self.model.get_parameters_for_mode("netF")
+            self.optimizer_F = torch.optim.Adam(
+                self.Fparams, lr=opt.lr, betas=(opt.beta1, opt.beta2)
+            )
+
 
     def set_requires_grad(self, params, requires_grad):
         """ For more efficient optimization, turn on and off
@@ -65,6 +74,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         self.train_mode_counter = (self.train_mode_counter + 1) % len(modes)
         return modes[self.train_mode_counter]
 
+
     def train_one_step(self, data_i, total_steps_so_far):
         images_minibatch = self.prepare_images(data_i)
         if self.toggle_training_mode() == "generator":
@@ -76,8 +86,14 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
     def train_generator_one_step(self, images):
         self.set_requires_grad(self.Dparams, False)
         self.set_requires_grad(self.Gparams, True)  # only record G's gradient
+        
         sp_ma, gl_ma = None, None
         self.optimizer_G.zero_grad()
+
+        if self.opt.lambda_NCE > 0.0:               # only record F's gradient
+            self.set_requires_grad(self.Fparams, True)
+            self.optimizer_F.zero_grad()
+
         g_losses, g_metrics = self.model(
             images, sp_ma, gl_ma, command="compute_generator_losses"
         )
@@ -85,6 +101,11 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         g_loss.backward()
         
         self.optimizer_G.step()
+
+         
+        if self.opt.lambda_NCE > 0.0:
+            self.optimizer_F.step()
+
         g_losses["G_total"] = g_loss
         g_losses.update(g_metrics)
         return g_losses
@@ -94,6 +115,10 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
             return {}
         self.set_requires_grad(self.Dparams, True)  # only record D's gradients
         self.set_requires_grad(self.Gparams, False)
+
+        if self.opt.lambda_NCE > 0.0:
+            self.set_requires_grad(self.Fparams, False)
+
         self.discriminator_iter_counter += 1
         self.optimizer_D.zero_grad()
         d_losses, d_metrics, sp, gl = self.model(

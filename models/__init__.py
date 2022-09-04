@@ -57,7 +57,7 @@ def get_option_setter(model_name):
     return model_class.modify_commandline_options
 
 
-def create_model(opt):
+def create_model(opt, prepare_data):
     """Create a model given the option.
 
     This function warps the class CustomDatasetDataLoader.
@@ -70,7 +70,7 @@ def create_model(opt):
     model = find_model_using_name(opt.model)    # find the model.py file, here the swapping_autoencoder 
                                                 # return model class
     instance = model(opt)   # define a model instance
-    instance.initialize()
+    instance.initialize(prepare_data)
     multigpu_instance = MultiGPUModelWrapper(opt, instance)
     print("model [%s] was created" % type(instance).__name__)
     return multigpu_instance

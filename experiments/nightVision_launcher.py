@@ -72,21 +72,43 @@ class Launcher(TmuxLauncher):
             opt.specify(
                 name="nightVision_unaligned_extreme",
                 use_unaligned=True,
-                load_size=256, crop_size=256,
-                netE_num_downsampling_sp=3,
                 dataset_mode="unaligned",
+
+                load_size=512, crop_size=512,
+                netE_num_downsampling_sp=3,
                 evaluation_metrics="none",
                 patch_min_scale=1/16,
                 patch_max_scale=1/8,
                 patch_num_crops = 16,
                 patch_size=32,
-                netPatchD_scale_capacity=3.0,
+                netPatchD_scale_capacity=2.5,
+                netD_scale_capacity=0.8,
                 display_env="izar_unaligned_extreme",
                 tb_folder="./runs/unaligned_extreme/"
             ),
             opt.specify(
                 name="nightVision_aligned_extreme",
                 use_unaligned=False,
+
+                batch_size=64,
+                load_size=256, crop_size=256,
+                netE_num_downsampling_sp=2,
+                evaluation_metrics="none",
+                patch_min_scale=1/16,
+                patch_max_scale=1/8,
+                patch_num_crops = 16,
+                patch_size=32,
+                netPatchD_scale_capacity=2.0,
+                netD_scale_capacity=0.5,
+                display_env="izar_aligned_extreme",
+                tb_folder="./runs/aligned_extreme/"
+            ),
+            opt.specify(
+                name="nightVision_unaligned_extreme_smallSize",
+                use_unaligned=True,
+                dataset_mode="unaligned",
+
+                batch_size=32,
                 load_size=256, crop_size=256,
                 netE_num_downsampling_sp=3,
                 evaluation_metrics="none",
@@ -94,23 +116,23 @@ class Launcher(TmuxLauncher):
                 patch_max_scale=1/8,
                 patch_num_crops = 16,
                 patch_size=32,
-                netPatchD_scale_capacity=3.0,
-                display_env="izar_aligned_extreme",
-                tb_folder="./runs/aligned_extreme/"
-            )
+                netPatchD_scale_capacity=2.5,
+                netD_scale_capacity=0.8,
+                display_env="izar_unaligned_extreme_smallSize",
+                tb_folder="./runs/unaligned_extreme_smallSize/"
+            ),
         ]
 
 
     def train_options(self):
         common_options = self.options()
-        print(len(common_options))
         return [opt.specify(
             continue_train=True,
         ) for opt in common_options
         ]
 
     def test_options(self):
-        opt = self.options()[1]
+        opt = self.options()[-2]
         return [
             opt.tag("simple_swapping").specify(
                 num_gpus=1,
@@ -122,7 +144,7 @@ class Launcher(TmuxLauncher):
                 evaluation_metrics="simple_swapping",
                 # Specify the two images here.
                 #input_texture_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/testphotos/nightVision/val_night/1645596786082.jpg",
-                input_texture_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/datasets/nightVisionDatasets/day_images/2257.jpg",
+                input_texture_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/datasets/nightVisionDatasets/day_images/3891.jpg",
                 input_structure_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/testphotos/nightVision/val_night/1645596068345.jpg",
                 # alpha == 1.0 corresponds to full swapping.
                 # 0 < alpha < 1 means interpolation
@@ -137,9 +159,8 @@ class Launcher(TmuxLauncher):
                 preprocess="resize", load_size=1024, crop_size=1024,
                 evaluation_metrics="simple_swapping",
                 # Specify the two images here.
-                input_texture_image ="./testphotos/nightVision/val_day/4145.jpg",
-                input_structure_image ="./testphotos/nightVision/night_waste/1645336847.345478.jpg",
+                input_texture_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/datasets/nightVisionDatasets/day_images/3891.jpg",
+                input_structure_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/testphotos/nightVision/val_night/1645596068345.jpg",
                 texture_mix_alpha='0.0 0.25 0.5 0.75 1.0',
-                resume_iter = '13epoch',
             )
         ]

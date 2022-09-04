@@ -10,8 +10,8 @@
 #SBATCH --mem=350GB
 #SBATCH --time=12:00:00
 #SBATCH --chdir /scratch/izar/xugao/trainLogs
-#SBATCH --output=/scratch/izar/xugao/trainLogs/smallPatch_smallDSP_4_%j.out
-#SBATCH --error=/scratch/izar/xugao/trainLogs/smallPatch_smallDSP_4_%j.err
+#SBATCH --output=/scratch/izar/xugao/trainLogs/smallPatch_smallDSP_5_%j.out
+#SBATCH --error=/scratch/izar/xugao/trainLogs/smallPatch_smallDSP_5_%j.err
 
 module load gcc cuda
 echo "hello from 'hostname'"

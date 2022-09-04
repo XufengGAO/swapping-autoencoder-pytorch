@@ -44,6 +44,8 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
         blur_kernel = [1, 2, 1] if self.opt.use_antialias else [1]
 
         self.add_module("FromRGB", ConvLayer(3, self.nc(0), 1))
+        
+        
 
         self.DownToSpatialCode = nn.Sequential()
         for i in range(self.opt.netE_num_downsampling_sp):
@@ -52,7 +54,7 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
                 ResBlock(self.nc(i), self.nc(i + 1), blur_kernel,
                          reflection_pad=True)
             )
-
+            
         # Spatial Code refers to the Structure Code, and
         # Global Code refers to the Texture Code of the paper.
         nchannels = self.nc(self.opt.netE_num_downsampling_sp) # 512
@@ -64,6 +66,7 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
                           activate=False, bias=True)
             )
         )
+        # ------------------------------- #
 
         self.DownToGlobalCode = nn.Sequential()
         for i in range(self.opt.netE_num_downsampling_gl):
@@ -90,25 +93,40 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
         nc = min(self.opt.global_code_ch, int(round(nc)))
         return round(nc)
 
-    def forward(self, x, extract_features=False):
-        x = self.FromRGB(x)
-        midpoint = self.DownToSpatialCode(x)
-        sp = self.ToSpatialCode(midpoint)
+    def forward(self, x, extract_features=False, layers=[]):
+        if len(layers) > 0:
+            features = []
+            layer_id = 0
+            for module in [self.FromRGB, self.DownToSpatialCode]:
+                for _, layer in enumerate(module):
+                    x = layer(x)
+                    if layer_id in layers:
+                        features.append(x)
+                    layer_id += 1
 
-        if extract_features:
-            padded_midpoint = F.pad(midpoint, (1, 0, 1, 0), mode='reflect')
-            feature = self.DownToGlobalCode[0](padded_midpoint)
-            assert feature.size(2) == sp.size(2) // 2 and \
-                feature.size(3) == sp.size(3) // 2
-            feature = F.interpolate(
-                feature, size=(7, 7), mode='bilinear', align_corners=False)
-
-        x = self.DownToGlobalCode(midpoint)
-        x = x.mean(dim=(2, 3))
-        gl = self.ToGlobalCode(x)
-        sp = util.normalize(sp)
-        gl = util.normalize(gl)
-        if extract_features:
-            return sp, gl, feature
+            for _, submodule in enumerate(self.ToSpatialCode):
+                for _, layer in enumerate(submodule):
+                    x = layer(x)
+                    if layer_id in layers:
+                        features.append(x)
+                    layer_id += 1
+            return features
         else:
+            x = self.FromRGB(x)
+            midpoint = self.DownToSpatialCode(x)
+            sp = self.ToSpatialCode(midpoint)
+            x = self.DownToGlobalCode(midpoint)
+            x = x.mean(dim=(2, 3))
+            gl = self.ToGlobalCode(x)
+            
+            sp = util.normalize(sp)
+            gl = util.normalize(gl)
             return sp, gl
+
+
+
+        
+
+
+    
+
