@@ -104,8 +104,9 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
         nc = min(self.opt.global_code_ch, int(round(nc)))
         return round(nc)
 
-    def forward(self, x, extract_features=False, layers=[]):
+    def forward(self, x, layers=[]):
         if len(layers) > 0:
+            #print("ENCODER EXTRACTS FEATURES at layers", layers)
             features = []
             layer_id = 0
             for module in [self.FromRGB, self.DownToSpatialCode]:
@@ -113,6 +114,7 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
                     x = layer(x)
                     if layer_id in layers:
                         features.append(x)
+                        #print(layer_id, x.shape)
                     layer_id += 1
 
             for _, submodule in enumerate(self.ToSpatialCode):
@@ -120,6 +122,7 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
                     x = layer(x)
                     if layer_id in layers:
                         features.append(x)
+                        #print(layer_id, x.shape)
                     layer_id += 1
             return features
         else:

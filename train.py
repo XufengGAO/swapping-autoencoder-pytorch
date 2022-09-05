@@ -58,7 +58,6 @@ model = models.create_model(opt, prepare_data)
 optimizer = optimizers.create_optimizer(opt, model)
 
 """
-    
 # print encoder structure
 print("------FromRGB-----")
 print(len(model.singlegpu_model.E.FromRGB))
@@ -84,9 +83,7 @@ print("------ToGlobalCode-----")
 print(len(model.singlegpu_model.E.ToGlobalCode))
 for layer_id, layer in enumerate(model.singlegpu_model.E.ToGlobalCode):
     print(layer_id, layer)
-
-
-
+"""
 
 while not iter_counter.completed_training():
     with iter_counter.time_measurement("data"):
@@ -108,7 +105,7 @@ while not iter_counter.completed_training():
                     tb_writer.add_scalars('Image_D Loss', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
                 if k in ['PatchD_real', 'PatchD_mix']:
                     tb_writer.add_scalars('Patch_D Loss', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
-                if k in ['G_GAN_mix', 'G_GAN_rec', 'G_L1', 'G_mix']:
+                if k in ['G_GAN_mix', 'G_GAN_rec', 'G_L1', 'G_mix', 'G_NCE']:
                     tb_writer.add_scalars('G Loss', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
                 if k in ['D_total', 'G_total']:
                     tb_writer.add_scalars('G and D', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
@@ -142,7 +139,7 @@ np.savetxt(iter_counter.iter_record_path,
 print("End, Saved model at {} epo and {} steps".format(iter_counter.epoch_so_far, iter_counter.steps_so_far))
 optimizer.save(iter_counter.epoch_so_far, iter_counter.steps_so_far) # save the model
 
-"""
+
 print('--------------------Training finished--------------------')
 
 

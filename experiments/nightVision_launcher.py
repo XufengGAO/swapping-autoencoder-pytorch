@@ -123,7 +123,7 @@ class Launcher(TmuxLauncher):
             ),
             opt.specify(
                 name="nightVision_cut",
-                batch_size=32,
+                batch_size=16,
                 load_size=256, crop_size=256,
                 netE_num_downsampling_sp=2,
                 evaluation_metrics="none",
@@ -136,7 +136,8 @@ class Launcher(TmuxLauncher):
 
                 CUT_mode="CUT",
                 server='localhost',
-                num_gpus=1
+                num_gpus=1,
+                nce_layers="0,2,3,4,6"
             ),
         ]
 

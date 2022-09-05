@@ -68,8 +68,6 @@ class SwappingAutoencoderModel(BaseModel):
         for i in range(self.opt.num_gpus):
             self.gpu_ids.append(i)
 
-        
-
         # Count the iteration count of the discriminator
         # Used for lazy R1 regularization (c.f. Appendix B of StyleGAN2)
         # all non-required gradient tensor created by register_buffer
@@ -84,9 +82,9 @@ class SwappingAutoencoderModel(BaseModel):
             self.to("cuda:0")
         # set netF
         if self.opt.lambda_NCE > 0.0:
-            self.netF = networks.define_F(self.opt.netF, self.opt.init_type, self.opt.init_gain, self.gpu_ids, self.opt.netF_nc)
+            self.nce_layers = [int(i) for i in self.opt.nce_layers.split(',')]
             preimages = self.prepare_images(prepare_data)
-            print('preimages', self.device, preimages.shape, preimages.device)
+            #print('preimages', self.device, preimages.shape, preimages.device)
             bs_per_gpu = preimages.size(0) // max(len(self.gpu_ids), 1)
             pre_images_per_gpu = preimages[:bs_per_gpu]
 
@@ -97,7 +95,6 @@ class SwappingAutoencoderModel(BaseModel):
             self.criterionNCE = []
             for nce_layer in self.nce_layers:
                 self.criterionNCE.append(PatchNCELoss(self.opt).to(self.device))
-
 
         # load check_point file
         # if not train or true continue train

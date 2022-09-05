@@ -42,8 +42,9 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
             self.Dparams, lr=opt.lr * c, betas=(opt.beta1 ** c, opt.beta2 ** c)
         )
 
-        # TODO lr and beta values for netF
+        # lr and beta values for netF
         if self.opt.lambda_NCE > 0.0:
+            print('create F optimizer')
             self.Fparams = self.model.get_parameters_for_mode("netF")
             self.optimizer_F = torch.optim.Adam(
                 self.Fparams, lr=opt.lr, betas=(opt.beta1, opt.beta2)
@@ -102,7 +103,6 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         
         self.optimizer_G.step()
 
-         
         if self.opt.lambda_NCE > 0.0:
             self.optimizer_F.step()
 

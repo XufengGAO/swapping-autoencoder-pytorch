@@ -220,6 +220,7 @@ class PatchSampleF(nn.Module):
         for mlp_id, feat in enumerate(feats):
             input_nc = feat.shape[1]
             mlp = nn.Sequential(*[nn.Linear(input_nc, self.nc), nn.ReLU(), nn.Linear(self.nc, self.nc)])
+            #print("mlp channels", input_nc, self.nc)
             if len(self.gpu_ids) > 0:
                 mlp.cuda()
             setattr(self, 'mlp_%d' % mlp_id, mlp)
@@ -232,9 +233,10 @@ class PatchSampleF(nn.Module):
         if self.use_mlp and not self.mlp_init:
             self.create_mlp(feats)
         for feat_id, feat in enumerate(feats):
-            print(feat_id, feat.shape)
+            #print(feat.shape)
             B, H, W = feat.shape[0], feat.shape[2], feat.shape[3]
             feat_reshape = feat.permute(0, 2, 3, 1).flatten(1, 2)
+            #print("feat_reshape", feat_id, feat_reshape.shape)
             if num_patches > 0:
                 if patch_ids is not None:
                     patch_id = patch_ids[feat_id]
@@ -250,6 +252,7 @@ class PatchSampleF(nn.Module):
                 patch_id = []
             if self.use_mlp:
                 mlp = getattr(self, 'mlp_%d' % feat_id)
+                #print('mlp_%d' % feat_id, x_sample.shape, patch_id.shape)
                 x_sample = mlp(x_sample)
             return_ids.append(patch_id)
             x_sample = self.l2norm(x_sample)
