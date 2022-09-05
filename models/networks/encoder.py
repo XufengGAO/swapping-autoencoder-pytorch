@@ -1,3 +1,4 @@
+import enum
 import numpy as np
 import math
 import torch
@@ -45,7 +46,9 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
 
         self.add_module("FromRGB", ConvLayer(3, self.nc(0), 1))
         
-        
+        checkStructure = []
+        for _, layer in enumerate(self.FromRGB):
+            checkStructure += [layer]
 
         self.DownToSpatialCode = nn.Sequential()
         for i in range(self.opt.netE_num_downsampling_sp):
@@ -54,7 +57,9 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
                 ResBlock(self.nc(i), self.nc(i + 1), blur_kernel,
                          reflection_pad=True)
             )
-            
+        for _, layer in enumerate(self.DownToSpatialCode):
+            checkStructure += [layer]
+
         # Spatial Code refers to the Structure Code, and
         # Global Code refers to the Texture Code of the paper.
         nchannels = self.nc(self.opt.netE_num_downsampling_sp) # 512
@@ -66,6 +71,12 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
                           activate=False, bias=True)
             )
         )
+        for _, submodule in enumerate(self.ToSpatialCode):
+            for _, layer in enumerate(submodule):
+                checkStructure += [layer]
+        print('checkStructure')
+        for id, layer in enumerate(checkStructure):
+            print(id, layer)
         # ------------------------------- #
 
         self.DownToGlobalCode = nn.Sequential()

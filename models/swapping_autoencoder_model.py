@@ -49,8 +49,6 @@ class SwappingAutoencoderModel(BaseModel):
             parser.set_defaults(
                 nce_idt=False, lambda_NCE=10.0, flip_equivariance=True
             )
-        else:
-            raise ValueError(opt.CUT_mode)
 
         return parser
 
@@ -70,7 +68,7 @@ class SwappingAutoencoderModel(BaseModel):
         for i in range(self.opt.num_gpus):
             self.gpu_ids.append(i)
 
-        self.nce_layers = [int(i) for i in self.opt.nce_layers.split(',')]
+        
 
         # Count the iteration count of the discriminator
         # Used for lazy R1 regularization (c.f. Appendix B of StyleGAN2)
@@ -86,6 +84,7 @@ class SwappingAutoencoderModel(BaseModel):
             self.to("cuda:0")
         # set netF
         if self.opt.lambda_NCE > 0.0:
+            self.netF = networks.define_F(self.opt.netF, self.opt.init_type, self.opt.init_gain, self.gpu_ids, self.opt.netF_nc)
             preimages = self.prepare_images(prepare_data)
             print('preimages', self.device, preimages.shape, preimages.device)
             bs_per_gpu = preimages.size(0) // max(len(self.gpu_ids), 1)
@@ -105,7 +104,9 @@ class SwappingAutoencoderModel(BaseModel):
         if (not self.opt.isTrain) or self.opt.continue_train:
             self.load()
 
-        
+        # model to gpu
+        if self.opt.num_gpus > 0:
+            self.to("cuda:0")
 
     def prepare_images(self, data_i):   # return batch tensor
         A = data_i["real_A"] # night
@@ -376,5 +377,5 @@ class SwappingAutoencoderModel(BaseModel):
             if self.opt.lambda_PatchGAN > 0.0:
                 Dparams += list(self.Dpatch.parameters())
             return Dparams
-        elif mode == 'netF':
+        elif mode == 'netF' and self.opt.lambda_NCE > 0.0:
             return list(self.netF.parameters())

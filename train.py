@@ -85,10 +85,7 @@ print(len(model.singlegpu_model.E.ToGlobalCode))
 for layer_id, layer in enumerate(model.singlegpu_model.E.ToGlobalCode):
     print(layer_id, layer)
 
-print("-------ToStructureModel-------")
-print(len(model.singlegpu_model.E.ToStructureModel))
-for layer_id, layer in enumerate(model.singlegpu_model.E.ToStructureModel):
-    print(layer_id, layer)
+
 
 
 while not iter_counter.completed_training():
