@@ -5,7 +5,7 @@ class Launcher(TmuxLauncher):
     def options(self):
         opt = Options()
         opt.set(
-            dataroot="./datasets/nightVisionDatasets/",
+            dataroot="/home/bozorgta/xugao/gitLocal/datasets/nightVisionDatasets",
             dataset_mode="nightVision",
             checkpoints_dir="./checkpoints/",
 
@@ -121,13 +121,30 @@ class Launcher(TmuxLauncher):
                 display_env="izar_unaligned_extreme_smallSize",
                 tb_folder="./runs/unaligned_extreme_smallSize/"
             ),
+            opt.specify(
+                name="nightVision_cut",
+                batch_size=32,
+                load_size=256, crop_size=256,
+                netE_num_downsampling_sp=2,
+                evaluation_metrics="none",
+                patch_min_scale=1/16,
+                patch_max_scale=1/8,
+                patch_num_crops = 16,
+                patch_size=32,
+                display_env="izar_aligned_cut",
+                tb_folder="./runs/aligned_cut/",
+
+                CUT_mode="CUT",
+                server='localhost',
+                num_gpus=1
+            ),
         ]
 
 
     def train_options(self):
         common_options = self.options()
         return [opt.specify(
-            continue_train=True,
+            continue_train=False,
         ) for opt in common_options
         ]
 

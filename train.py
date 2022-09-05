@@ -10,6 +10,7 @@ import torch
 from torch.utils.cpp_extension import CUDA_HOME;
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
+import os
 
 print('---------------------Training Start----------------------')
 print('Check GPU first:', torch.cuda.is_available(), torch.cuda.device_count())
@@ -28,6 +29,8 @@ dataset = data.create_dataset(opt)
 opt.dataset = dataset               
 
 # SummaryWriter instance
+if os.path.exists(opt.tb_folder) is False:
+    os.makedirs(opt.tb_folder)
 tb_writer = SummaryWriter(log_dir=opt.tb_folder)
 
 print('One epoch includes {} batches'.format(len(dataset.dataloader)))  # one epoch 2040 batches
@@ -54,6 +57,8 @@ prepare_data = next(dataset)
 model = models.create_model(opt, prepare_data)
 optimizer = optimizers.create_optimizer(opt, model)
 
+"""
+    
 # print encoder structure
 print("------FromRGB-----")
 print(len(model.singlegpu_model.E.FromRGB))
@@ -140,7 +145,7 @@ np.savetxt(iter_counter.iter_record_path,
 print("End, Saved model at {} epo and {} steps".format(iter_counter.epoch_so_far, iter_counter.steps_so_far))
 optimizer.save(iter_counter.epoch_so_far, iter_counter.steps_so_far) # save the model
 
-
+"""
 print('--------------------Training finished--------------------')
 
 

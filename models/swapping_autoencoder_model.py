@@ -80,12 +80,15 @@ class SwappingAutoencoderModel(BaseModel):
         )
         self.l1_loss = torch.nn.L1Loss()    # reconstruction loss
 
+        self.netF = networks.define_F(self.opt.netF, self.opt.init_type, self.opt.init_gain, self.gpu_ids, self.opt.netF_nc)
+        # model to gpu
+        if self.opt.num_gpus > 0:
+            self.to("cuda:0")
         # set netF
         if self.opt.lambda_NCE > 0.0:
-            self.netF = networks.define_F(self.opt.netF, self.opt.init_type, self.opt.init_gain, self.gpu_ids, self.opt.netF_nc)
             preimages = self.prepare_images(prepare_data)
-
-            bs_per_gpu = preimages.size(0) // max(len(self.opt.gpu_ids), 1)
+            print('preimages', self.device, preimages.shape, preimages.device)
+            bs_per_gpu = preimages.size(0) // max(len(self.gpu_ids), 1)
             pre_images_per_gpu = preimages[:bs_per_gpu]
 
             feat_k = self.E(pre_images_per_gpu, self.nce_layers)
@@ -102,9 +105,7 @@ class SwappingAutoencoderModel(BaseModel):
         if (not self.opt.isTrain) or self.opt.continue_train:
             self.load()
 
-        # model to gpu
-        if self.opt.num_gpus > 0:
-            self.to("cuda:0")
+        
 
     def prepare_images(self, data_i):   # return batch tensor
         A = data_i["real_A"] # night
@@ -116,7 +117,7 @@ class SwappingAutoencoderModel(BaseModel):
             c[0] = 2*c[0]
             A = torch.cat([A, B], dim=1).view(tuple(c))
 
-        return A
+        return A.to(self.device)
 
     def data_dependent_initialize(self, data):
         """
