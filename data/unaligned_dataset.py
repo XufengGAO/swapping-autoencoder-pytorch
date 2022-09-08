@@ -2,6 +2,7 @@ import os.path
 from data.base_dataset import BaseDataset, get_transform
 from data.image_folder import make_dataset
 from PIL import Image
+import torchvision.transforms as transforms
 import random
 
 
@@ -41,8 +42,18 @@ class UnalignedDataset(BaseDataset):
         random.Random(0).shuffle(self.B_paths)
         self.A_size = len(self.A_paths)  # get the size of dataset A
         self.B_size = len(self.B_paths)  # get the size of dataset B
-        self.transform_A = get_transform(self.opt, grayscale=False)
-        self.transform_B = get_transform(self.opt, grayscale=False)
+
+        self.transform = get_transform(opt,  grayscale=False, convert=False)
+        if self.opt.isTrain and opt.augment:
+            self.transform_aug = transforms.Compose(
+                [transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.3),
+                 transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                ]
+            )
+        else:
+            self.transform_aug = None
+        self.transform_tensor = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
         self.B_indices = list(range(self.B_size))
 
     def __getitem__(self, index):
@@ -64,12 +75,18 @@ class UnalignedDataset(BaseDataset):
         B_path = self.B_paths[index_B]
         A_img = Image.open(A_path).convert('RGB')
         B_img = Image.open(B_path).convert('RGB')
+        A_pil = self.transform(A_img)
+        B_pil = self.transform(B_img)
 
         # apply image transformation
-        A = self.transform_A(A_img)
-        B = self.transform_B(B_img)
-
-        return {'real_A': A, 'real_B': B, 'path_A': A_path, 'path_B': B_path}
+        A = self.transform_tensor(A_pil)
+        B = self.transform_tensor(B_pil)
+        if self.opt.isTrain and self.transform_aug is not None:
+            A_aug = self.transform_aug(A_pil)
+            B_aug = self.transform_aug(B_pil)
+            return {'real_A': A, 'real_B': B, 'A_paths': A_path, 'B_paths': B_path, 'aug_A': A_aug, 'aug_B': B_aug}
+        else:
+            return {'real_A': A, 'real_B': B, 'A_paths': A_path, 'B_paths': B_path}
 
     def __len__(self):
         """Return the total number of images in the dataset.

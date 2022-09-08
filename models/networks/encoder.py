@@ -104,11 +104,12 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
         nc = min(self.opt.global_code_ch, int(round(nc)))
         return round(nc)
 
-    def forward(self, x, layers=[]):
+    def forward(self, x, layers=[], extract_features=False):
         if len(layers) > 0:
             #print("ENCODER EXTRACTS FEATURES at layers", layers)
             features = []
             layer_id = 0
+            #features.append(x)
             for module in [self.FromRGB, self.DownToSpatialCode]:
                 for _, layer in enumerate(module):
                     x = layer(x)
@@ -129,13 +130,26 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
             x = self.FromRGB(x)
             midpoint = self.DownToSpatialCode(x)
             sp = self.ToSpatialCode(midpoint)
+
+
+            if extract_features:
+                padded_midpoint = F.pad(midpoint, (1, 0, 1, 0), mode='reflect')
+                feature = self.DownToGlobalCode[0](padded_midpoint)
+                assert feature.size(2) == sp.size(2) // 2 and \
+                    feature.size(3) == sp.size(3) // 2
+                feature = F.interpolate(
+                feature, size=(7, 7), mode='bilinear', align_corners=False)
+
             x = self.DownToGlobalCode(midpoint)
             x = x.mean(dim=(2, 3))
             gl = self.ToGlobalCode(x)
-            
             sp = util.normalize(sp)
             gl = util.normalize(gl)
-            return sp, gl
+            if extract_features:
+                return sp, gl, feature
+            else:
+                return sp, gl
+            
 
 
 

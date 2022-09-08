@@ -59,7 +59,7 @@ class Visualizer():
         parser.add_argument("--display_port", default=8097)
         parser.add_argument("--display_ncols", default=2)
         parser.add_argument("--display_env", default="izar_default")
-        parser.add_argument("--no_html", type=util.str2bool, nargs='?', const=True, default=True)
+        parser.add_argument("--no_html", type=util.str2bool, nargs='?', const=True, default=False)
 
         return parser
 
@@ -280,7 +280,7 @@ class Visualizer():
             self.create_visdom_connections()
 
     # losses: same format as |losses| of plot_current_losses
-    def print_current_losses(self, iters, times, losses):
+    def print_current_losses(self, epoch, iters, times, losses):
         """print current losses on console; also save the losses to the disk
 
         Parameters:
@@ -290,7 +290,7 @@ class Visualizer():
             t_comp (float) -- computational time per data point (normalized by batch_size)
             t_data (float) -- data loading time per data point (normalized by batch_size)
         """
-        message = '(iters: %d' % (iters)
+        message = '(epoch: %d, epoch_iters: %d' % (epoch, iters)
         for k, v in times.items():
             message += ", %s: %.3f" % (k, v)
         message += ") "

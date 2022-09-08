@@ -5,7 +5,7 @@ class Launcher(TmuxLauncher):
     def options(self):
         opt = Options()
         opt.set(
-            dataroot="/home/bozorgta/xugao/gitLocal/datasets/nightVisionDatasets",
+            dataroot="./datasets/nightVisionDatasets",
             dataset_mode="nightVision",
             checkpoints_dir="./checkpoints/",
 
@@ -21,11 +21,6 @@ class Launcher(TmuxLauncher):
 
         return [
             opt.specify(
-                name="nightVision_default",
-                # patch_use_aggregation=False,
-                display_env="izar_default"
-            ),
-            opt.specify(
                 name="nightVision_smallPatch_smallDsp",
                 netE_num_downsampling_sp=2,
                 patch_min_scale=1/16,
@@ -37,7 +32,7 @@ class Launcher(TmuxLauncher):
                 tb_folder="./runs/smallPatch_smallDsp/"
             ), 
             opt.specify(
-                name="nightVision_unaligned",  # unaligned_smallPach_smallDsp
+                name="nightVision_unaligned", 
                 use_unaligned=True,
                 dataset_mode="unaligned",
                 netE_num_downsampling_sp=2,
@@ -56,35 +51,6 @@ class Launcher(TmuxLauncher):
                 evaluation_metrics="none",
                 display_env="izar_unaligned_default",
                 tb_folder="./runs/unaligned_default/"
-            ),
-            opt.specify(
-                name="nightVision_unaligned_smallPatch",
-                use_unaligned=True,
-                dataset_mode="unaligned",
-                evaluation_metrics="none",
-                patch_min_scale=1/16,
-                patch_max_scale=1/8,
-                patch_num_crops = 8,
-                patch_size=64,
-                display_env="izar_unaligned_smallPatch",
-                tb_folder="./runs/unaligned_smallPatch/"
-            ),
-            opt.specify(
-                name="nightVision_unaligned_extreme",
-                use_unaligned=True,
-                dataset_mode="unaligned",
-
-                load_size=512, crop_size=512,
-                netE_num_downsampling_sp=3,
-                evaluation_metrics="none",
-                patch_min_scale=1/16,
-                patch_max_scale=1/8,
-                patch_num_crops = 16,
-                patch_size=32,
-                netPatchD_scale_capacity=2.5,
-                netD_scale_capacity=0.8,
-                display_env="izar_unaligned_extreme",
-                tb_folder="./runs/unaligned_extreme/"
             ),
             opt.specify(
                 name="nightVision_aligned_extreme",
@@ -122,25 +88,23 @@ class Launcher(TmuxLauncher):
                 tb_folder="./runs/unaligned_extreme_smallSize/"
             ),
             opt.specify(
-                name="nightVision_cut",
+                name="nightVision_unaligned_sc",
+                use_unaligned=True,
+                dataset_mode="unaligned",
+                num_gpus=1,
+
                 batch_size=16,
-                load_size=256, crop_size=256,
+                load_size=286, crop_size=256,
                 netE_num_downsampling_sp=2,
                 evaluation_metrics="none",
                 patch_min_scale=1/16,
                 patch_max_scale=1/8,
                 patch_num_crops = 16,
                 patch_size=32,
-                display_env="izar_aligned_cut",
-                tb_folder="./runs/aligned_cut/",
-
-                CUT_mode="CUT",
-                server='localhost',
-                num_gpus=1,
-                nce_layers="0,2,3,4,6"
+                display_env="izar_unaligned_sc",
+                tb_folder="./runs/unaligned_sc/"
             ),
         ]
-
 
     def train_options(self):
         common_options = self.options()

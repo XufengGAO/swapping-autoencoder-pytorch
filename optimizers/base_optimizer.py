@@ -9,7 +9,7 @@ class BaseOptimizer():
     def __init__(self, model: MultiGPUModelWrapper):
         self.opt = model.opt
 
-    def train_one_step(self, data_i, total_steps_so_far):
+    def train_one_step(self, data_i, total_steps_so_far=0):
         pass
 
     def get_visuals_for_snapshot(self, data_i):

@@ -21,6 +21,7 @@ class BaseOptions():
         parser.add_argument('--tb_folder', type=str, required=True)
         parser.add_argument('--real_batch_size', type=int, default=1, help='input batch size')
         parser.add_argument("--use_unaligned", type=util.str2bool, default=False)
+        
         # experiment specifics
         parser.add_argument('--name', type=str, required=True, help='name of the experiment. It decides where to store samples and models')
         parser.add_argument('--easy_label', type=str, default="")
@@ -55,6 +56,10 @@ class BaseOptions():
         parser.add_argument("--netPatchD", default="StyleGAN2")
         parser.add_argument("--use_antialias", type=util.str2bool, default=True)
 
+        # training parameters
+        parser.add_argument('--epoch_count', type=int, default=1, help='the starting epoch count, we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>, ...')
+        parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs with the initial learning rate')
+        
         return parser
 
     def gather_options(self, command=None): # gather all arguments

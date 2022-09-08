@@ -47,8 +47,9 @@ def get_option_setter(dataset_name):
 
 
 def create_dataset(opt): 
-    return ConfigurableDataLoader(opt)
-
+    data_loader = ConfigurableDataLoader(opt)
+    dataset = data_loader.load_data()
+    return dataset
 
 class DataPrefetcher():
     def __init__(self, dataset):
@@ -94,43 +95,50 @@ class ConfigurableDataLoader():
                                                                                             # Then create a dataset_class(opt) instance
         shuffle = phase == "train" if opt.shuffle_dataset is None else opt.shuffle_dataset == "true"  # shuffle
         print("dataset [%s] of size %d was created. shuffled=%s" % (type(dataset).__name__, len(dataset), shuffle))
-        #dataset = DataPrefetcher(dataset)
-        self.opt = opt
 
         self.dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=opt.real_batch_size,
             shuffle=shuffle,
-            num_workers=opt.num_gpus,
+            num_workers=int(opt.num_gpus),
             drop_last=phase == "train",
         )
         # The drop_last=True parameter ignores the last batch 
         # (when the number of examples in your dataset is not divisible by 
         # your batch_size ) while drop_last=False will make the last batch smaller than your batch_size
 
-        #self.dataloader = dataset
-        self.dataloader_iterator = iter(self.dataloader)  # return iterator
-        self.repeat = phase == "train"  # use data repeatly if training is not finished, see __next()__
+        # self.dataloader = dataset
+        # self.dataloader_iterator = iter(self.dataloader)  # return iterator
+        # self.underlying_dataset = dataset
+        # self.repeat = phase == "train"  # use data repeatly if training is not finished, see __next()__
         self.length = len(dataset)
-        self.underlying_dataset = dataset
+        
 
-    def set_phase(self, target_phase):
-        if self.phase != target_phase:
-            self.initialize(target_phase)
-
-    def __iter__(self):  # used with __next__(__iter(self)==self)
-        self.dataloader_iterator = iter(self.dataloader)
+    def __iter__(self):
+        """Return a batch of data"""
+        for i, data in enumerate(self.dataloader):
+            yield data
+            
+    def load_data(self):
         return self
 
     def __len__(self):
         return self.length
 
-    def __next__(self):
-        try:
-            return next(self.dataloader_iterator)
-        except StopIteration:   # repeat or not
-            if self.repeat:
-                self.dataloader_iterator = iter(self.dataloader)
-                return next(self.dataloader_iterator)
-            else:
-                raise StopIteration
+    # def set_phase(self, target_phase):
+    #     if self.phase != target_phase:
+    #         self.initialize(target_phase)
+
+    # def __iter__(self):  # used with __next__(__iter(self)==self)
+    #     self.dataloader_iterator = iter(self.dataloader)
+    #     return self
+
+    # def __next__(self):
+    #     try:
+    #         return next(self.dataloader_iterator)
+    #     except StopIteration:   # repeat or not
+    #         if self.repeat:
+    #             self.dataloader_iterator = iter(self.dataloader)
+    #             return next(self.dataloader_iterator)
+    #         else:
+    #             raise StopIteration
