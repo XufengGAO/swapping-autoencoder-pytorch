@@ -2,9 +2,16 @@
 *.png
 *.txt
 *.pkl
+*.html
+
+core.13879
+core.22162
+core.26190
+core.35098
 
 # ipython notebook files should be manually added after clearning output and kernel
 *.ipynb
+
 
 #emacs
 *~

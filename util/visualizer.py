@@ -1,3 +1,4 @@
+from email.policy import default
 import numpy as np
 import torch
 import os
@@ -54,9 +55,10 @@ class Visualizer():
 
     @staticmethod
     def modify_commandline_options(parser, is_train):
-        parser.add_argument("--display_port", default=2004)
+        parser.add_argument('--server', type=str, default='izar')
+        parser.add_argument("--display_port", default=8097)
         parser.add_argument("--display_ncols", default=2)
-        parser.add_argument("--display_env", default="main")
+        parser.add_argument("--display_env", default="izar_default")
         parser.add_argument("--no_html", type=util.str2bool, nargs='?', const=True, default=True)
 
         return parser
@@ -92,11 +94,20 @@ class Visualizer():
                 )
                 print("setting up visdom server for sensei")
             else:
+                print('')
                 self.vis = visdom.Visdom(
-                    server="http://localhost",
+                    server="http://"+opt.server,
                     port=opt.display_port,
                     env=opt.display_env,
                     raise_exceptions=False)
+
+                
+                # test code
+                self.vis.text('Hello Visdom!')
+                image = np.random.randint(0, 255, (3, 256, 256), dtype=np.uint8)
+                self.vis.image(image)
+                print("http://", opt.server, opt.display_port, opt.display_env)                
+                
             if not self.vis.check_connection():
                 self.create_visdom_connections()
 
@@ -111,7 +122,7 @@ class Visualizer():
         # create a logging file to store training losses
         self.log_name = os.path.join(
             opt.checkpoints_dir, opt.name, 'loss_log.txt')
-        with open(self.log_name, "a") as log_file:
+        with open(self.log_name, "a+") as log_file:
             now = time.strftime("%c")
             log_file.write('================ Training Loss (%s) ================\n' % now)
 

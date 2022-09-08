@@ -3,7 +3,7 @@ experiment launcher using tmux panes
 """
 import os
 import math 
-#import GPUtil  TODO: uncomment
+import GPUtil
 import re
 
 available_gpu_devices = None
@@ -87,7 +87,8 @@ class TmuxLauncher():
         opts = self.train_options()  # a list of opts
         # str(opt) is a defiend function in Options()
         # it will concatenate the arguments+value, like --xx xx --xx xx
-        return ["python faketrain.py " + str(opt) for opt in opts] 
+        # return ["python train.py " + str(opt) for opt in opts] 
+        return ["python train.py " + str(opt) for opt in opts] 
 
     def test_commands(self):
         opts = self.test_options()
@@ -131,24 +132,27 @@ class TmuxLauncher():
             num_gpus = int(re.search(r'--num_gpus ([\d,?]+)', command)[1])
         else:
             num_gpus = 1
-
-        global available_gpu_devices
-        if available_gpu_devices is None and gpu_id is None:
-            # available gpu in this computer
-            # available_gpu_devices = [str(g) for g in GPUtil.getAvailable(limit=8, maxMemory=0.2)] TODO: uncomment
-            available_gpu_devices = [str(g) for g in range(num_gpus)]
-            None
-        if gpu_id is not None:
-            available_gpu_devices = [i for i in str(gpu_id)]
-        if len(available_gpu_devices) < num_gpus:
-            raise ValueError("{} GPU(s) required for the command {} is not available".format(num_gpus, command))
-        active_devices = ",".join(available_gpu_devices[:num_gpus])
+        if num_gpus != 0:
+            global available_gpu_devices
+            if available_gpu_devices is None and gpu_id is None:
+                # available gpu in this computer
+                available_gpu_devices = [str(g) for g in GPUtil.getAvailable(limit=8, maxMemory=0.2)]
+            if gpu_id is not None:
+                available_gpu_devices = [i for i in str(gpu_id)]
+            print("available gpus", available_gpu_devices)
+            if len(available_gpu_devices) < num_gpus:
+                raise ValueError("{} GPU(s) required for the command {} is not available".format(num_gpus, command))
+            active_devices = ",".join(available_gpu_devices[:num_gpus])
+        else:
+            active_devices = ""
+            print('CPU mode')
         if resume_iter is not None:
             resume_iter = " --resume_iter %s " % resume_iter
         else:
             resume_iter = ""
         # insert additional commands: gpu_available and resume_iter
         command = "CUDA_VISIBLE_DEVICES={} {} {}".format(active_devices, command, resume_iter)
+
         if continue_train:
             command += " --continue_train "
 
@@ -269,3 +273,4 @@ class TmuxLauncher():
     def gather_metrics(self, ids, mode, name):
         from .plotter import gather_metrics
         gather_metrics(self, ids, mode, name)
+        

@@ -27,9 +27,9 @@ if __name__ == "__main__":
     import argparse # Command-line parsing library
 
     parser = argparse.ArgumentParser()  # Without -- meaning positional, No key required
-    parser.add_argument('name')         # launcher name
-    parser.add_argument('cmd')          # train OR test
-    parser.add_argument('id', nargs='+', type=str) # name of opt.specify in train
+    parser.add_argument('--name')         # launcher name
+    parser.add_argument('--cmd')          # train OR test
+    parser.add_argument('--id', nargs='+', type=str) # name of opt.specify in train
     parser.add_argument('--mode', default=None)
     parser.add_argument('--resume_iter', default=None)
     parser.add_argument('--continue_train', action='store_true')
@@ -42,6 +42,7 @@ if __name__ == "__main__":
     opt = parser.parse_args()  # only return recognized arguments
 
     name = opt.name
+    
     Launcher = find_launcher_using_name(name)
 
     # cache = "/tmp/tmux_launcher/{}".format(name)

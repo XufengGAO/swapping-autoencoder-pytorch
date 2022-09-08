@@ -61,7 +61,7 @@ class GroupEvaluator(BaseEvaluator):
         metrics = {}
         for i, evaluator in enumerate(self.evaluators):
             print("Entering evaluation using %s on %s images" % (type(evaluator).__name__, evaluator.target_phase))
-            dataset.set_phase(evaluator.target_phase)
+            dataset.set_phase(evaluator.target_phase)       # 
             with torch.no_grad():
                 new_metrics = evaluator.evaluate(model, dataset, nsteps)
                 metrics.update(new_metrics)

@@ -43,7 +43,7 @@ class PatchDAutoencoderOptimizer(BaseOptimizer):
         if "real_B" in data_i:
             B = data_i["real_B"]
             A = torch.cat([A, B], dim=0)
-            A = A[torch.randperm(A.size(0))]
+            A = A[torch.randperm(A.size(0))] # like shuffle
         return A
 
     def toggle_training_mode(self):
@@ -110,5 +110,5 @@ class PatchDAutoencoderOptimizer(BaseOptimizer):
         with torch.no_grad():
             return self.model(images, command="get_visuals_for_snapshot")
 
-    def save(self, total_steps_so_far):
-        self.model.save(total_steps_so_far)
+    def save(self, epoch, total_steps_so_far):
+        self.model.save(epoch, total_steps_so_far)

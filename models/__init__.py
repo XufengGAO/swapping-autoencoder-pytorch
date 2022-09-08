@@ -57,7 +57,7 @@ def get_option_setter(model_name):
     return model_class.modify_commandline_options
 
 
-def create_model(opt):
+def create_model(opt, prepare_data):
     """Create a model given the option.
 
     This function warps the class CustomDatasetDataLoader.
@@ -70,7 +70,7 @@ def create_model(opt):
     model = find_model_using_name(opt.model)    # find the model.py file, here the swapping_autoencoder 
                                                 # return model class
     instance = model(opt)   # define a model instance
-    instance.initialize()
+    instance.initialize(prepare_data)
     multigpu_instance = MultiGPUModelWrapper(opt, instance)
     print("model [%s] was created" % type(instance).__name__)
     return multigpu_instance
@@ -89,8 +89,8 @@ class MultiGPUModelWrapper():
     def get_parameters_for_mode(self, mode):
         return self.singlegpu_model.get_parameters_for_mode(mode)   # return list parameters of mode (network type)
 
-    def save(self, total_steps_so_far):  # save parameters
-        self.singlegpu_model.save(total_steps_so_far)   # here we store the main model parameters, not the parallel one 
+    def save(self, epoch, total_steps_so_far):  # save parameters
+        self.singlegpu_model.save(epoch, total_steps_so_far)   # here we store the main model parameters, not the parallel one 
 
     def __call__(self, *args, **kwargs): # forward()
         """ Calls are forwarded to __call__ of BaseModel through DataParallel, and corresponding methods specified by |command| will be called. Please see BaseModel.forward() to see how it is done. """

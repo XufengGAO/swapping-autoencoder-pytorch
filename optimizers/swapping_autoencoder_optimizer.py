@@ -31,6 +31,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         self.Gparams = self.model.get_parameters_for_mode("generator")      # list parameters: self.G, self.E
         self.Dparams = self.model.get_parameters_for_mode("discriminator")  # self.D, self.patchD
 
+
         self.optimizer_G = torch.optim.Adam(
             self.Gparams, lr=opt.lr, betas=(opt.beta1, opt.beta2)   # see above
         )
@@ -41,6 +42,15 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
             self.Dparams, lr=opt.lr * c, betas=(opt.beta1 ** c, opt.beta2 ** c)
         )
 
+        # lr and beta values for netF
+        if self.opt.lambda_NCE > 0.0:
+            print('create F optimizer')
+            self.Fparams = self.model.get_parameters_for_mode("netF")
+            self.optimizer_F = torch.optim.Adam(
+                self.Fparams, lr=opt.lr, betas=(opt.beta1, opt.beta2)
+            )
+
+
     def set_requires_grad(self, params, requires_grad):
         """ For more efficient optimization, turn on and off
             recording of gradients for |params|.
@@ -49,12 +59,22 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
             p.requires_grad_(requires_grad)
 
     def prepare_images(self, data_i):   # return batch tensor
-        return data_i["real_A"]
+        A = data_i["real_A"] # night
+        if "real_B" in data_i:
+            B = data_i["real_B"] # day
+            A = A[torch.randperm(A.size(0))] # shuffle A
+            B = B[torch.randperm(B.size(0))] # shuffle B
+            c = list(A.shape)
+            c[0] = 2*c[0]
+            A = torch.cat([A, B], dim=1).view(tuple(c))
+
+        return A
 
     def toggle_training_mode(self):
         modes = ["discriminator", "generator"]
         self.train_mode_counter = (self.train_mode_counter + 1) % len(modes)
         return modes[self.train_mode_counter]
+
 
     def train_one_step(self, data_i, total_steps_so_far):
         images_minibatch = self.prepare_images(data_i)
@@ -67,14 +87,26 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
     def train_generator_one_step(self, images):
         self.set_requires_grad(self.Dparams, False)
         self.set_requires_grad(self.Gparams, True)  # only record G's gradient
+        
         sp_ma, gl_ma = None, None
         self.optimizer_G.zero_grad()
+
+        if self.opt.lambda_NCE > 0.0:               # only record F's gradient
+            self.set_requires_grad(self.Fparams, True)
+            self.optimizer_F.zero_grad()
+
         g_losses, g_metrics = self.model(
             images, sp_ma, gl_ma, command="compute_generator_losses"
         )
         g_loss = sum([v.mean() for v in g_losses.values()])
         g_loss.backward()
+        
         self.optimizer_G.step()
+
+        if self.opt.lambda_NCE > 0.0:
+            self.optimizer_F.step()
+
+        g_losses["G_total"] = g_loss
         g_losses.update(g_metrics)
         return g_losses
 
@@ -83,6 +115,10 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
             return {}
         self.set_requires_grad(self.Dparams, True)  # only record D's gradients
         self.set_requires_grad(self.Gparams, False)
+
+        if self.opt.lambda_NCE > 0.0:
+            self.set_requires_grad(self.Fparams, False)
+
         self.discriminator_iter_counter += 1
         self.optimizer_D.zero_grad()
         d_losses, d_metrics, sp, gl = self.model(
@@ -115,5 +151,5 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         with torch.no_grad():
             return self.model(images, command="get_visuals_for_snapshot")
 
-    def save(self, total_steps_so_far):
-        self.model.save(total_steps_so_far)
+    def save(self, epoch, total_steps_so_far):
+        self.model.save(epoch, total_steps_so_far)

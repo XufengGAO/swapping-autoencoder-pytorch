@@ -32,9 +32,10 @@ class BaseModel(torch.nn.Module):
     def get_parameters_for_mode(self, mode):
         return {}
 
-    def save(self, total_steps_so_far):
+    def save(self, epoch, total_steps_so_far):
         savedir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
-        checkpoint_name = "%dk_checkpoint.pth" % (total_steps_so_far // 1000)
+        #checkpoint_name = "%depoch_%%dk_checkpoint.pth" % (epoch, total_steps_so_far // 1000)
+        checkpoint_name = "%depoch_checkpoint.pth" % (epoch)
         savepath = os.path.join(savedir, checkpoint_name)
         torch.save(self.state_dict(), savepath)
         sympath = os.path.join(savedir, "latest_checkpoint.pth")

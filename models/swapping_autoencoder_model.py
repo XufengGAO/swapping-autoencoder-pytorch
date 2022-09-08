@@ -3,7 +3,7 @@ import util
 from models import BaseModel
 import models.networks as networks
 import models.networks.loss as loss
-
+from .networks.patchnce import PatchNCELoss
 
 class SwappingAutoencoderModel(BaseModel):
     @staticmethod
@@ -21,9 +21,38 @@ class SwappingAutoencoderModel(BaseModel):
         parser.add_argument("--patch_num_crops", default=8, type=int)
         parser.add_argument("--patch_use_aggregation",
                             type=util.str2bool, default=True)
+
+        # CUT arguments
+        parser.add_argument('--CUT_mode', type=str, default="None", choices='(CUT, cut, FastCUT, fastcut)')
+        parser.add_argument('--lambda_NCE', type=float, default=0.0, help='weight for NCE loss: NCE(G(X), X)')
+        parser.add_argument('--nce_idt', type=util.str2bool, nargs='?', const=True, default=False, help='use NCE loss for identity mapping: NCE(G(Y), Y))')
+        parser.add_argument('--nce_layers', type=str, default='', help='compute NCE loss on which layers')
+        parser.add_argument('--nce_includes_all_negatives_from_minibatch',
+                            type=util.str2bool, nargs='?', const=True, default=False,
+                            help='(used for single image translation) If True, include the negatives from the other samples of the minibatch when computing the contrastive loss. Please see models/patchnce.py for more details.')
+        parser.add_argument('--netF', type=str, default='mlp_sample', choices=['sample', 'reshape', 'mlp_sample'], help='how to downsample the feature map')
+        parser.add_argument('--netF_nc', type=int, default=256)
+        parser.add_argument('--nce_T', type=float, default=0.07, help='temperature for NCE loss')
+        parser.add_argument('--num_patches', type=int, default=256, help='number of patches per layer')
+        parser.add_argument('--flip_equivariance',
+                            type=util.str2bool, nargs='?', const=True, default=False,
+                            help="Enforce flip-equivariance as additional regularization. It's used by FastCUT, but not CUT")
+        parser.add_argument('--init_type', type=str, default='xavier', choices=['normal', 'xavier', 'kaiming', 'orthogonal'], help='network initialization')
+        parser.add_argument('--init_gain', type=float, default=0.02, help='scaling factor for normal, xavier and orthogonal.')
+
+        opt, _ = parser.parse_known_args()
+
+        # Set default parameters for CUT and FastCUT
+        if opt.CUT_mode.lower() == "cut":
+            parser.set_defaults(nce_idt=True, lambda_NCE=1.0)
+        elif opt.CUT_mode.lower() == "fastcut":
+            parser.set_defaults(
+                nce_idt=False, lambda_NCE=10.0, flip_equivariance=True
+            )
+
         return parser
 
-    def initialize(self):
+    def initialize(self, prepare_data):
         # return network instances
         self.E = networks.create_network(self.opt, self.opt.netE, "encoder")    # opt.netE="StyleGAN2Resnet" + "encoder"
         self.G = networks.create_network(self.opt, self.opt.netG, "generator")  # opt.netG="StyleGAN2Resnet" + "generator"
@@ -34,6 +63,10 @@ class SwappingAutoencoderModel(BaseModel):
             self.Dpatch = networks.create_network(          # opt.netPatchD="StyleGAN2" + "patch_discriminator" 
                 self.opt, self.opt.netPatchD, "patch_discriminator" 
             )
+        
+        self.gpu_ids = []
+        for i in range(self.opt.num_gpus):
+            self.gpu_ids.append(i)
 
         # Count the iteration count of the discriminator
         # Used for lazy R1 regularization (c.f. Appendix B of StyleGAN2)
@@ -43,13 +76,55 @@ class SwappingAutoencoderModel(BaseModel):
         )
         self.l1_loss = torch.nn.L1Loss()    # reconstruction loss
 
+        self.netF = networks.define_F(self.opt.netF, self.opt.init_type, self.opt.init_gain, self.gpu_ids, self.opt.netF_nc)
+        # model to gpu
+        if self.opt.num_gpus > 0:
+            self.to("cuda:0")
+        # set netF
+        if self.opt.lambda_NCE > 0.0:
+            self.nce_layers = [int(i) for i in self.opt.nce_layers.split(',')]
+            preimages = self.prepare_images(prepare_data)
+            #print('preimages', self.device, preimages.shape, preimages.device)
+            bs_per_gpu = preimages.size(0) // max(len(self.gpu_ids), 1)
+            pre_images_per_gpu = preimages[:bs_per_gpu]
+
+            feat_k = self.E(pre_images_per_gpu, self.nce_layers)
+            _, sample_ids = self.netF(feat_k, self.opt.num_patches, None)
+            _, _ = self.netF(feat_k, self.opt.num_patches, sample_ids)
+            
+            self.criterionNCE = []
+            for nce_layer in self.nce_layers:
+                self.criterionNCE.append(PatchNCELoss(self.opt).to(self.device))
+
         # load check_point file
+        # if not train or true continue train
         if (not self.opt.isTrain) or self.opt.continue_train:
             self.load()
 
         # model to gpu
         if self.opt.num_gpus > 0:
             self.to("cuda:0")
+
+    def prepare_images(self, data_i):   # return batch tensor
+        A = data_i["real_A"] # night
+        if "real_B" in data_i:
+            B = data_i["real_B"] # day
+            A = A[torch.randperm(A.size(0))] # shuffle A
+            B = B[torch.randperm(B.size(0))] # shuffle B
+            c = list(A.shape)
+            c[0] = 2*c[0]
+            A = torch.cat([A, B], dim=1).view(tuple(c))
+
+        return A.to(self.device)
+
+    def data_dependent_initialize(self, data):
+        """
+        The feature network netF is defined in terms of the shape of the intermediate, extracted
+        features of the encoder portion of netG. Because of this, the weights of netF are
+        initialized at the first feedforward pass with some input images.
+        Please also see PatchSampleF.create_mlp(), which is called at the first forward() call.
+        """
+        
 
     def per_gpu_initialize(self):
         pass
@@ -195,6 +270,7 @@ class SwappingAutoencoderModel(BaseModel):
         B = real.size(0)
 
         sp, gl = self.E(real)
+
         rec = self.G(sp[:B // 2], gl[:B // 2])  # only on B//2 to save memory
         sp_mix = self.swap(sp)
         
@@ -228,13 +304,32 @@ class SwappingAutoencoderModel(BaseModel):
                 self.get_random_crops(real),
                 aggregate=self.opt.patch_use_aggregation).detach()
             mix_feat = self.Dpatch.extract_features(self.get_random_crops(mix))
-
+            # patchGAN loss
             losses["G_mix"] = loss.gan_loss(
                 self.Dpatch.discriminate_features(real_feat, mix_feat),
                 should_be_classified_as_real=True,
             ) * self.opt.lambda_PatchGAN
 
+        if self.opt.lambda_NCE > 0.0:
+           losses["G_NCE"] = self.calculate_NCE_loss(real, mix)  # check the mutual information, src=real, tgt=mix
+
         return losses, metrics
+
+    def calculate_NCE_loss(self, src, tgt):
+        # src=real, tgt=mix
+        n_layers = len(self.nce_layers)
+        feat_q = self.E(tgt, self.nce_layers)
+        feat_k = self.E(src, self.nce_layers)
+
+        feat_k_pool, sample_ids = self.netF(feat_k, self.opt.num_patches, None)
+        feat_q_pool, _ = self.netF(feat_q, self.opt.num_patches, sample_ids)
+
+        total_nce_loss = 0.0
+        for f_q, f_k, crit, nce_layer in zip(feat_q_pool, feat_k_pool, self.criterionNCE, self.nce_layers):
+            loss = crit(f_q, f_k) * self.opt.lambda_NCE
+            total_nce_loss += loss.mean()
+
+        return total_nce_loss / n_layers
 
     def get_visuals_for_snapshot(self, real):
         if self.opt.isTrain:
@@ -279,3 +374,5 @@ class SwappingAutoencoderModel(BaseModel):
             if self.opt.lambda_PatchGAN > 0.0:
                 Dparams += list(self.Dpatch.parameters())
             return Dparams
+        elif mode == 'netF' and self.opt.lambda_NCE > 0.0:
+            return list(self.netF.parameters())
