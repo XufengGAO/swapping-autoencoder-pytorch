@@ -141,5 +141,13 @@ dmypy.json
 
 
 # Dataset folder
-nightVisionDatesets
+datasets
 SAE_env
+checkpoints
+testphotos
+wandb
+runs
+
+# file
+sample.json
+wandbDemo.py
