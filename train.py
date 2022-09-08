@@ -17,7 +17,6 @@ print('---------------------Training Start----------------------')
 print('Check GPU first:', torch.cuda.is_available(), torch.cuda.device_count())
 #print('Start Tensorboard with with "tensorboard --logdir ./runs/xxx/ --samples_per_plugin=images=30", view at http://localhost:6006/')
 
-
 trainOption = TrainOptions()
 opt = trainOption.parse()
 if opt.use_unaligned:
@@ -41,8 +40,8 @@ num_epoch = 200
 opt.total_nimgs = num_epoch * len(dataset.dataloader) * opt.real_batch_size  # train epochs in total
 opt.save_freq = len(dataset.dataloader) * opt.real_batch_size       # save the model per epoch
 opt.evaluation_freq = len(dataset.dataloader) * opt.real_batch_size # evaluate the model per epoch
-opt.print_freq = 240   
-opt.display_freq = 800 
+opt.print_freq = 100 
+opt.display_freq = 400 
 
 trainOption.print_options(opt)
 if trainOption.isTrain:
@@ -80,7 +79,8 @@ for epoch in range(opt.epoch_count, opt.n_epochs + 1):
         epoch_iter += opt.batch_size
         
         with iter_counter.time_measurement("maintenance"):
-            if iter_counter.needs_printing():
+            #if iter_counter.needs_printing():
+            if total_iters % opt.print_freq == 0:
                 visualizer.print_current_losses(epoch,
                                                 epoch_iter,
                                                 iter_counter.time_measurements,
@@ -96,20 +96,22 @@ for epoch in range(opt.epoch_count, opt.n_epochs + 1):
                         tb_writer.add_scalars('G and D', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
                 visualizer.plot_current_losses(epoch, float(epoch_iter) / dataset_size, metric_tracker.current_metrics())
                         
-            if iter_counter.needs_displaying():
+            if total_iters % opt.display_freq == 0:
                 visuals = optimizer.get_visuals_for_snapshot()
-                visualizer.display_current_results(visuals, iter_counter.steps_so_far)
+                visualizer.display_current_results(visuals, epoch)
             
             if iter_counter.needs_evaluation():
                 metrics = evaluators.evaluate(
                     model, dataset, iter_counter.steps_so_far)  
-                metric_tracker.update_metrics(metrics, smoothe=False)  
-            
-            if iter_counter.needs_saving():         # save the model per epoch
-                print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
-                optimizer.save(iter_counter.epoch_so_far, iter_counter.steps_so_far)       
+                metric_tracker.update_metrics(metrics, smoothe=False) 
 
-            iter_counter.record_one_iteration()
+            iter_counter.record_one_iteration() 
+            
+    if epoch % opt.save_epoch_freq == 0:         # save the model per epoch
+        print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
+        optimizer.save(iter_counter.epoch_so_far, iter_counter.steps_so_far)       
+
+            
 
 print('--------------------Training finished--------------------')
 

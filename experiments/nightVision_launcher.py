@@ -5,7 +5,7 @@ class Launcher(TmuxLauncher):
     def options(self):
         opt = Options()
         opt.set(
-            dataroot="./datasets/nightVisionDatasets",
+            dataroot="/home/bozorgta/xugao/gitLocal/datasets/nightVisionDatasets",
             dataset_mode="nightVision",
             checkpoints_dir="./checkpoints/",
 
@@ -92,8 +92,8 @@ class Launcher(TmuxLauncher):
                 use_unaligned=True,
                 dataset_mode="unaligned",
                 num_gpus=1,
-
-                batch_size=16,
+                server='localhost',
+                batch_size=4,
                 load_size=286, crop_size=256,
                 netE_num_downsampling_sp=2,
                 evaluation_metrics="none",

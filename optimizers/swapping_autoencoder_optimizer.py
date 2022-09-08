@@ -77,42 +77,45 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
 
     def train_one_step(self, data_i, total_steps_so_far=0):
         #images_minibatch = self.prepare_images(data_i)
-        self.model(data_i, command="set_input" )
-        self.model(command="compute_forward")
+        # self.model(data_i, command="set_input" )
+        # self.model(command="compute_forward")
 
         if self.opt.lambda_NCE > 0.0:
-            spatial_loss = self.train_netF_one_step()
+            spatial_loss = self.train_netF_one_step(data_i)
 
         if self.toggle_training_mode() == "generator":
-            losses = self.train_discriminator_one_step()
+            losses = self.train_discriminator_one_step(data_i)
         else:
-            losses = self.train_generator_one_step()
+            losses = self.train_generator_one_step(data_i)
 
         if self.opt.lambda_NCE > 0.0:
             losses['netF_spatial_loss'] = spatial_loss
 
         return util.to_numpy(losses)
 
-    def train_netF_one_step(self):
+    def train_netF_one_step(self, data_i):
         self.set_requires_grad(self.Fparams, True)  # only record F's gradient
         self.set_requires_grad(self.Dparams, False)
         self.set_requires_grad(self.Gparams, False)
         self.optimizer_F.zero_grad()
 
-        spatial_loss = self.model(command="compute_netF_losses")
+        spatial_loss = self.model(data_i, command="compute_netF_losses")
         spatial_loss.backward()
         self.optimizer_F.step()
 
         return spatial_loss
             
-    def train_generator_one_step(self):
+    def train_generator_one_step(self, data_i):
         self.set_requires_grad(self.Dparams, False)
-        self.set_requires_grad(self.Fparams, False)
         self.set_requires_grad(self.Gparams, True)  # only record G's gradient
+
+        if self.opt.lambda_NCE > 0.0:
+            self.set_requires_grad(self.Fparams, False)
+        
         
         self.optimizer_G.zero_grad()
 
-        g_losses, g_metrics = self.model(command="compute_generator_losses")
+        g_losses, g_metrics = self.model(data_i, command="compute_generator_losses")
         g_loss = sum([v.mean() for v in g_losses.values()])
         g_loss.backward()
         
@@ -122,16 +125,17 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         g_losses.update(g_metrics)
         return g_losses
 
-    def train_discriminator_one_step(self):
+    def train_discriminator_one_step(self, data_i):
         if self.opt.lambda_GAN == 0.0 and self.opt.lambda_PatchGAN == 0.0:
             return {}
         self.set_requires_grad(self.Dparams, True)  # only record D's gradients
         self.set_requires_grad(self.Gparams, False)
-        self.set_requires_grad(self.Fparams, False)
+        if self.opt.lambda_NCE > 0.0:
+            self.set_requires_grad(self.Fparams, False)
 
         self.discriminator_iter_counter += 1
         self.optimizer_D.zero_grad()
-        d_losses, d_metrics = self.model(command="compute_discriminator_losses")
+        d_losses, d_metrics = self.model(data_i, command="compute_discriminator_losses")
         #self.previous_sp = sp.detach()  # record the calculated sp/gl, and detach it (just store values)
         #self.previous_gl = gl.detach()
 

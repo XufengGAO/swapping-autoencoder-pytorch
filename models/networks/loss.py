@@ -7,7 +7,7 @@ import torchvision
 import util
 import torchvision.models as models
 from .stylegan2_layers import Downsample
-from networks import init_net, init_weights
+from models.networks import init_net
 
 def gan_loss(pred, should_be_classified_as_real):
     bs = pred.size(0)

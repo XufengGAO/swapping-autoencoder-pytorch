@@ -1,3 +1,4 @@
+from base64 import encode
 import torch
 import util
 from models import BaseModel
@@ -45,10 +46,10 @@ class SwappingAutoencoderModel(BaseModel):
         parser.add_argument('--use_vgg', type=util.str2bool, default=True, help="feature extractor")
         parser.add_argument('--use_norm', type=util.str2bool, default=True, help="normalize the feature map for FLSeSim")
         parser.add_argument('--learned_attn', type=util.str2bool, default=True, help="use the learnable attention map")
-        parser.add_argument('--augment', type=util.str2bool, default=False, help="use data augmentation for contrastive learning")
+        parser.add_argument('--augment', type=util.str2bool, default=True, help="use data augmentation for contrastive learning")
 
 
-        parser.add_argument('--lambda_NCE', type=float, default=5.0, help='weight for NCE loss: NCE(G(X), X)')
+        parser.add_argument('--lambda_NCE', type=float, default=-2.0, help='weight for NCE loss: NCE(G(X), X)')
         # parser.add_argument('--lambda_spatial', type=float, default=10.0, help='weight for spatially-correlative loss')
         # parser.add_argument('--lambda_spatial_idt', type=float, default=0.0, help='weight for idt spatial loss')
         # parser.add_argument('--lambda_perceptual', type=float, default=0.0, help='weight for feature consistency loss')
@@ -94,7 +95,7 @@ class SwappingAutoencoderModel(BaseModel):
                 self.netF = loss.SpatialCorrelativeLoss(self.opt.loss_mode, self.opt.patch_nums, self.opt.nce_patch_size, self.opt.use_norm, 
                                                                     self.opt.learned_attn, gpu_ids=self.gpu_ids, T=self.opt.nce_T)
                 if self.opt.use_vgg:
-                    self.netPre = loss.VGG16()
+                    self.netPre = loss.VGG16().to(self.device)
                 else:
                     self.netPre = self.E
                 
@@ -102,11 +103,12 @@ class SwappingAutoencoderModel(BaseModel):
                     self.set_requires_grad([self.netPre], False)
 
                 self.nce_layers = [int(i) for i in self.opt.nce_layers.split(',')]
-                self.set_input(input)
-                bs_per_gpu = self.real.size(0) // max(len(self.gpu_ids), 1)
-                real_per_gpu = self.real[:bs_per_gpu]
 
-                _ = self.Spatial_Loss(self.netPre, real_per_gpu, real_per_gpu, None)
+                self.set_input(input)
+                # bs_per_gpu = self.real.size(0) // max(len(self.gpu_ids), 1)
+                # real_per_gpu = self.real[:bs_per_gpu]
+
+                _ = self.Spatial_Loss(self.netPre, self.real_A, self.real_B, None)
 
 
                 """
@@ -159,12 +161,13 @@ class SwappingAutoencoderModel(BaseModel):
         #self.mix_B, self.mix_A = self.mix[:B//2], self.mix[B//2:]
         self.mix = self.G(self.sp, self.swap(self.gl))
         
-    def compute_netF_losses(self):
+    def compute_netF_losses(self, input):
         """
         Calculate the contrastive loss for learned spatially-correlative loss
         """
         # TODO normalize and augment
-
+        self.set_input(input)
+        self.compute_forward()
         norm_real_A, norm_real_B, norm_fake_B = (self.real_A + 1) * 0.5, (self.real_B + 1) * 0.5, (self.mix[:self.B//2].detach() + 1) * 0.5
     
         if self.opt.augment:
@@ -195,12 +198,13 @@ class SwappingAutoencoderModel(BaseModel):
         """ Swaps (or mixes) the ordering of the minibatch """
         shape = x.shape
         assert shape[0] % 2 == 0, "Minibatch size must be a multiple of 2"
-        x = torch.cat([input[shape[0]//2:], input[:shape[0]//2]], dim=0)
+        B = shape[0]//2
+        x = torch.cat([x[B:], x[:B]], dim=0)
         # new_shape = [shape[0] // 2, 2] + list(shape[1:])
         # x = x.view(*new_shape)
         # x = torch.flip(x, [1])
 
-        return x.view(*shape)
+        return x
 
     def get_random_crops(self, x, crop_window=None):
         """ Make random crops.
@@ -258,7 +262,9 @@ class SwappingAutoencoderModel(BaseModel):
 
         return losses
 
-    def compute_discriminator_losses(self):
+    def compute_discriminator_losses(self, input):
+        self.set_input(input)
+        self.compute_forward()
         self.num_discriminator_iters.add_(1)
         """
         sp, gl = self.E(real)   # encoder forward with real images, return strucure code and global code for each sample
@@ -329,7 +335,7 @@ class SwappingAutoencoderModel(BaseModel):
 
         return losses
 
-    def compute_generator_losses(self):
+    def compute_generator_losses(self, input):
         losses, metrics = {}, {}
         """
         
@@ -347,6 +353,9 @@ class SwappingAutoencoderModel(BaseModel):
         """
         #B = self.real.size(0)
         # record the error of the reconstructed images for monitoring purposes
+        self.set_input(input)
+        self.compute_forward()
+
         metrics["L1_dist"] = self.l1_loss(self.rec, self.real)
 
         if self.opt.lambda_L1 > 0.0:
@@ -375,22 +384,22 @@ class SwappingAutoencoderModel(BaseModel):
             ) * self.opt.lambda_PatchGAN
 
         # TODO Normalize
-        norm_real_A, norm_real_B = (self.real_A + 1) * 0.5, (self.real_B + 1) * 0.5
-        norm_fake_B, norm_fake_A = (self.mix[:self.B//2].detach() + 1) * 0.5, (self.mix[self.B//2:].detach() + 1) * 0.5
         if self.opt.lambda_NCE > 0.0:
-           losses["G_spatial_loss"] = self.Spatial_Loss(self.netPre, norm_real_A, norm_fake_B, None) * self.opt.lambda_NCE * 0.5 + \
+            norm_real_A, norm_real_B = (self.real_A + 1) * 0.5, (self.real_B + 1) * 0.5
+            norm_fake_B, norm_fake_A = (self.mix[:self.B//2].detach() + 1) * 0.5, (self.mix[self.B//2:].detach() + 1) * 0.5
+            losses["G_spatial_loss"] = self.Spatial_Loss(self.netPre, norm_real_A, norm_fake_B, None) * self.opt.lambda_NCE * 0.5 + \
                                         self.Spatial_Loss(self.netPre, norm_real_B, norm_fake_A, None) * self.opt.lambda_NCE * 0.5
 
         return losses, metrics
 
     def Spatial_Loss(self, net, src, tgt, other=None):
         """given the source (real) and target images (mix) to calculate the spatial similarity and dissimilarity loass"""
-    
+
         n_layers = len(self.nce_layers)
-        feats_src = net(src, self.nce_layers)   # list of features
-        feats_tgt = net(tgt, self.nce_layers)
+        feats_src = net(src, self.nce_layers, encode_only=True)   # list of features
+        feats_tgt = net(tgt, self.nce_layers, encode_only=True)
         if other is not None:
-            feats_oth = net(torch.flip(other, [2, 3]), self.nce_layers)
+            feats_oth = net(torch.flip(other, [2, 3]), self.nce_layers, encode_only=True)
         else:
             feats_oth = [None for _ in range(n_layers)]
 

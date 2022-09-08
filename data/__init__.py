@@ -108,9 +108,9 @@ class ConfigurableDataLoader():
         # your batch_size ) while drop_last=False will make the last batch smaller than your batch_size
 
         # self.dataloader = dataset
-        # self.dataloader_iterator = iter(self.dataloader)  # return iterator
+        self.dataloader_iterator = iter(self.dataloader)  # return iterator
         # self.underlying_dataset = dataset
-        # self.repeat = phase == "train"  # use data repeatly if training is not finished, see __next()__
+        self.repeat = phase == "train"  # use data repeatly if training is not finished, see __next()__
         self.length = len(dataset)
         
 
@@ -133,12 +133,12 @@ class ConfigurableDataLoader():
     #     self.dataloader_iterator = iter(self.dataloader)
     #     return self
 
-    # def __next__(self):
-    #     try:
-    #         return next(self.dataloader_iterator)
-    #     except StopIteration:   # repeat or not
-    #         if self.repeat:
-    #             self.dataloader_iterator = iter(self.dataloader)
-    #             return next(self.dataloader_iterator)
-    #         else:
-    #             raise StopIteration
+    def __next__(self):
+        try:
+            return next(self.dataloader_iterator)
+        except StopIteration:   # repeat or not
+            if self.repeat:
+                self.dataloader_iterator = iter(self.dataloader)
+                return next(self.dataloader_iterator)
+            else:
+                raise StopIteration

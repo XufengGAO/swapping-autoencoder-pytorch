@@ -13,7 +13,8 @@ class IterationCounter():
         parser.add_argument("--save_freq", default=50000, type=int)         
         parser.add_argument("--evaluation_freq", default=50000, type=int)   
         parser.add_argument("--print_freq", default=480, type=int)         
-        parser.add_argument("--display_freq", default=1600, type=int)       
+        parser.add_argument("--display_freq", default=1600, type=int) 
+        parser.add_argument("--save_epoch_freq", default=2, type=int) 
         return parser
 
     def __init__(self, opt):
