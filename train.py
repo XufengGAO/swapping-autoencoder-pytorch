@@ -97,19 +97,19 @@ for epoch in range(opt.epoch_count, opt.n_epochs + 1):
                 visualizer.plot_current_losses(epoch, float(epoch_iter) / dataset_size, metric_tracker.current_metrics())
                         
             if total_iters % opt.display_freq == 0:
-                visuals = optimizer.get_visuals_for_snapshot()
+                visuals = optimizer.get_visuals_for_snapshot(cur_data)
                 visualizer.display_current_results(visuals, epoch)
             
-            if iter_counter.needs_evaluation():
-                metrics = evaluators.evaluate(
-                    model, dataset, iter_counter.steps_so_far)  
-                metric_tracker.update_metrics(metrics, smoothe=False) 
+            # if iter_counter.needs_evaluation():
+            #     metrics = evaluators.evaluate(
+            #         model, dataset, iter_counter.steps_so_far)  
+            #     metric_tracker.update_metrics(metrics, smoothe=False) 
 
             iter_counter.record_one_iteration() 
             
     if epoch % opt.save_epoch_freq == 0:         # save the model per epoch
         print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
-        optimizer.save(iter_counter.epoch_so_far, iter_counter.steps_so_far)       
+        optimizer.save(epoch, total_iters)       
 
             
 

@@ -47,7 +47,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         if self.opt.lambda_NCE > 0.0:
             self.Fparams = self.model.get_parameters_for_mode("netF")
             self.optimizer_F = torch.optim.Adam(
-                self.Fparams, lr=opt.lr/10, betas=(opt.beta1, opt.beta2)
+                self.Fparams, lr=opt.lr, betas=(opt.beta1, opt.beta2)
             )
 
 
@@ -148,7 +148,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
             self.discriminator_iter_counter % self.opt.R1_once_every == 0
         if needs_R1_at_current_iter:        # R1 regularization
             self.optimizer_D.zero_grad()
-            r1_losses = self.model(command="compute_R1_loss")
+            r1_losses = self.model(data_i, command="compute_R1_loss")
             d_losses.update(r1_losses)
             r1_loss = sum([v.mean() for v in r1_losses.values()])
             r1_loss = r1_loss * self.opt.R1_once_every
@@ -159,9 +159,9 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         d_losses.update(d_metrics)
         return d_losses
 
-    def get_visuals_for_snapshot(self, data_i=None):
+    def get_visuals_for_snapshot(self, data_i):
         with torch.no_grad():
-            return self.model(command="get_visuals_for_snapshot")
+            return self.model(data_i, command="get_visuals_for_snapshot")
 
     def save(self, epoch, total_steps_so_far):
         self.model.save(epoch, total_steps_so_far)

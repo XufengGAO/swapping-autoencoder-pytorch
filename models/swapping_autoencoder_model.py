@@ -49,7 +49,7 @@ class SwappingAutoencoderModel(BaseModel):
         parser.add_argument('--augment', type=util.str2bool, default=True, help="use data augmentation for contrastive learning")
 
 
-        parser.add_argument('--lambda_NCE', type=float, default=-2.0, help='weight for NCE loss: NCE(G(X), X)')
+        parser.add_argument('--lambda_NCE', type=float, default=5.0, help='weight for NCE loss: NCE(G(X), X)')
         # parser.add_argument('--lambda_spatial', type=float, default=10.0, help='weight for spatially-correlative loss')
         # parser.add_argument('--lambda_spatial_idt', type=float, default=0.0, help='weight for idt spatial loss')
         # parser.add_argument('--lambda_perceptual', type=float, default=0.0, help='weight for feature consistency loss')
@@ -104,23 +104,12 @@ class SwappingAutoencoderModel(BaseModel):
 
                 self.nce_layers = [int(i) for i in self.opt.nce_layers.split(',')]
 
-                self.set_input(input)
+                real = self.set_input(input, only_real=True)
                 # bs_per_gpu = self.real.size(0) // max(len(self.gpu_ids), 1)
                 # real_per_gpu = self.real[:bs_per_gpu]
 
-                _ = self.Spatial_Loss(self.netPre, self.real_A, self.real_B, None)
+                _ = self.Spatial_Loss(self.netPre, real, real, None)
 
-
-                """
-                #self.netF = networks.define_F(self.opt.netF, self.opt.init_type, self.opt.init_gain, self.gpu_ids, self.opt.netF_nc)
-                feat_k = self.E(prepare_data_per_gpu, self.nce_layers)
-                _, sample_ids = self.netF(feat_k, self.opt.num_patches, None)
-                _, _ = self.netF(feat_k, self.opt.num_patches, sample_ids)
-                
-                self.criterionNCE = []
-                for nce_layer in self.nce_layers:
-                    self.criterionNCE.append(PatchNCELoss(self.opt).to(self.device))
-                """
         # load check_point file
         # if not train or true continue train
         if (not self.opt.isTrain) or self.opt.continue_train:
@@ -131,59 +120,65 @@ class SwappingAutoencoderModel(BaseModel):
             self.to("cuda:0")
 
 
-    def set_input(self, input):   # return batch tensor
+    def set_input(self, input, only_real=True, with_aug=False):   # return batch tensor
         if self.opt.use_unaligned:
-            self.real_A = input["real_A"].to(self.device)# night
-            self.real_B = input["real_B"].to(self.device) # day
+            real = torch.cat([input["real_A"], input["real_B"]], dim=0).to(self.device)
+            if not only_real:
+                real_A, real_B, aug_A, aug_B = None, None, None, None
+                real_A = input["real_A"].to(self.device)    # night
+                real_B = input["real_B"].to(self.device)    # day
+
+                if self.opt.isTrain and with_aug:
+                    aug_A = input['aug_A'].to(self.device)
+                    aug_B = input['aug_B'].to(self.device)
+                return real, real_A, real_B, aug_A, aug_B
             # A = A[torch.randperm(A.size(0))] # shuffle A
             # B = B[torch.randperm(B.size(0))] # shuffle B
             # c = list(A.shape)
             # c[0] = 2*c[0]
             # A = torch.cat([A, B], dim=1).view(tuple(c))
-            self.real = torch.cat([self.real_A, self.real_B], dim=0).to(self.device)
-
-            if self.opt.isTrain and self.opt.augment:
-                self.aug_A = input['aug_A'].to(self.device)
-                self.aug_B = input['aug_B'].to(self.device)
         else:
-            self.real = input["real_A"].to(self.device)
+            real = input["real_A"].to(self.device)
+        
+        return real
 
-    def compute_forward(self):
-        self.sp, self.gl = self.E(self.real)   # encoder forward with real images, return strucure code and global code for each sample
-        self.B = self.real.size(0)        # check if batch size is even
-        assert self.B % 2 == 0, "Batch size must be even on each GPU."
+    # def compute_forward(self, input):
+    #     real = self.set_input(input)
+    #     self.sp, self.gl = self.E(real)   # encoder forward with real images, return strucure code and global code for each sample
+    #     self.B = real.size(0)        # check if batch size is even
+    #     assert self.B % 2 == 0, "Batch size must be even on each GPU."
 
-        # To save memory, compute the GAN loss on only
-        # half of the reconstructed images
-        # self.rec = self.G(self.sp[:B // 2], self.gl[:B // 2])
-        self.rec = self.G(self.sp, self.gl)
-        #self.rec_A, self.rec_B = rec[:B//2], rec[B//2:]
-        #self.mix_B, self.mix_A = self.mix[:B//2], self.mix[B//2:]
-        self.mix = self.G(self.sp, self.swap(self.gl))
+    #     # To save memory, compute the GAN loss on only
+    #     # half of the reconstructed images
+    #     # self.rec = self.G(self.sp[:B // 2], self.gl[:B // 2])
+    #     self.rec = self.G(self.sp, self.gl)
+    #     #self.rec_A, self.rec_B = rec[:B//2], rec[B//2:]
+    #     #self.mix_B, self.mix_A = self.mix[:B//2], self.mix[B//2:]
+    #     self.mix = self.G(self.sp, self.swap(self.gl))
         
     def compute_netF_losses(self, input):
         """
         Calculate the contrastive loss for learned spatially-correlative loss
         """
-        # TODO normalize and augment
-        self.set_input(input)
-        self.compute_forward()
-        norm_real_A, norm_real_B, norm_fake_B = (self.real_A + 1) * 0.5, (self.real_B + 1) * 0.5, (self.mix[:self.B//2].detach() + 1) * 0.5
+        real, real_A, real_B, aug_A, aug_B = self.set_input(input, only_real=False, with_aug=self.opt.augment)
+        B = real.size(0)
+        sp, gl = self.E(real)
+        mix = self.G(sp, self.swap(gl))
+
+        norm_real_A, norm_real_B, norm_fake_B = (real_A + 1) * 0.5, (real_B + 1) * 0.5, (mix[:B//2].detach() + 1) * 0.5
     
         if self.opt.augment:
-            norm_aug_A, norm_aug_B = (self.aug_A + 1) * 0.5, (self.aug_B + 1) * 0.5
+            norm_aug_A, norm_aug_B = (aug_A + 1) * 0.5, (aug_B + 1) * 0.5
             norm_real_A = torch.cat([norm_real_A, norm_real_A], dim=0)
             norm_fake_B = torch.cat([norm_fake_B, norm_aug_A], dim=0)
             norm_real_B = torch.cat([norm_real_B, norm_aug_B], dim=0)
 
-        # loss_spatial_A = self.Spatial_Loss(self.netPre, self.real_A, self.mix[:self.B//2], self.real_B)
-        # loss_spatial_B = self.Spatial_Loss(self.netPre, self.real_B, self.mix[self.B//2:], self.real_A)
-        # loss_spatial = 0.5*loss_spatial_A + 0.5*loss_spatial_B
         loss_spatial_A = self.Spatial_Loss(self.netPre, norm_real_A, norm_fake_B, norm_real_B)
 
-        norm_real_A, norm_real_B, norm_fake_A = (self.real_A + 1) * 0.5, (self.real_B + 1) * 0.5, (self.mix[self.B//2:].detach() + 1) * 0.5
+        norm_fake_A = (mix[B//2:].detach() + 1) * 0.5
 
         if self.opt.augment:
+            norm_real_A, norm_real_B = (real_A + 1) * 0.5, (real_B + 1) * 0.5
             norm_real_B = torch.cat([norm_real_B, norm_real_B], dim=0)
             norm_fake_A = torch.cat([norm_fake_A, norm_aug_B], dim=0)
             norm_real_A = torch.cat([norm_real_A, norm_aug_A], dim=0)
@@ -196,10 +191,10 @@ class SwappingAutoencoderModel(BaseModel):
 
     def swap(self, x):
         """ Swaps (or mixes) the ordering of the minibatch """
-        shape = x.shape
-        assert shape[0] % 2 == 0, "Minibatch size must be a multiple of 2"
-        B = shape[0]//2
-        x = torch.cat([x[B:], x[:B]], dim=0)
+        B = x.size(0)
+        assert B % 2 == 0, "Minibatch size must be a multiple of 2"
+        
+        x = torch.cat([x[B//2:], x[:B//2]], dim=0)
         # new_shape = [shape[0] // 2, 2] + list(shape[1:])
         # x = x.view(*new_shape)
         # x = torch.flip(x, [1])
@@ -219,13 +214,13 @@ class SwappingAutoencoderModel(BaseModel):
         )
         return crops
 
-    def compute_image_discriminator_losses(self):
+    def compute_image_discriminator_losses(self, real, rec, mix):
         if self.opt.lambda_GAN == 0.0:
             return {}
 
-        pred_real = self.D(self.real)
-        pred_rec = self.D(self.rec)
-        pred_mix = self.D(self.mix)
+        pred_real = self.D(real)
+        pred_rec = self.D(rec)
+        pred_mix = self.D(mix)
 
         losses = {}
         losses["D_real"] = loss.gan_loss(
@@ -241,14 +236,14 @@ class SwappingAutoencoderModel(BaseModel):
 
         return losses
 
-    def compute_patch_discriminator_losses(self):
+    def compute_patch_discriminator_losses(self, real, mix):
         losses = {}
         real_feat = self.Dpatch.extract_features(
-            self.get_random_crops(self.real),
+            self.get_random_crops(real),
             aggregate=self.opt.patch_use_aggregation
         )
-        target_feat = self.Dpatch.extract_features(self.get_random_crops(self.real))
-        mix_feat = self.Dpatch.extract_features(self.get_random_crops(self.mix))
+        target_feat = self.Dpatch.extract_features(self.get_random_crops(real))
+        mix_feat = self.Dpatch.extract_features(self.get_random_crops(mix))
  
         losses["PatchD_real"] = loss.gan_loss(
             self.Dpatch.discriminate_features(real_feat, target_feat),
@@ -263,37 +258,37 @@ class SwappingAutoencoderModel(BaseModel):
         return losses
 
     def compute_discriminator_losses(self, input):
-        self.set_input(input)
-        self.compute_forward()
+        real = self.set_input(input)
         self.num_discriminator_iters.add_(1)
-        """
+        
         sp, gl = self.E(real)   # encoder forward with real images, return strucure code and global code for each sample
         B = real.size(0)        # check if batch size is even
         assert B % 2 == 0, "Batch size must be even on each GPU."
 
         # To save memory, compute the GAN loss on only
         # half of the reconstructed images
-        rec = self.G(sp[:B // 2], gl[:B // 2])  # here sp and gl are pairs, half of them are input to generator to get reconstructed images
-        mix = self.G(self.swap(sp), gl)         # swap the orderof two continious sps, get the mix images, all resultant sp/gl are mixed
-        """
-        losses = self.compute_image_discriminator_losses()    # self.D loss = "D_real", "D_rec" and "D_mix"
+        rec = self.G(sp, gl)  # here sp and gl are pairs, half of them are input to generator to get reconstructed images
+        mix = self.G(self.swap(sp), gl)            # swap the orderof two continious sps, get the mix images, all resultant sp/gl are mixed
+        
+        losses = self.compute_image_discriminator_losses(real, rec, mix)    # self.D loss = "D_real", "D_rec" and "D_mix"
 
         if self.opt.lambda_PatchGAN > 0.0:
-            patch_losses = self.compute_patch_discriminator_losses() # self.Dpatch loss = "PatchD_real" and "PatchD_mix"
+            patch_losses = self.compute_patch_discriminator_losses(real, mix) # self.Dpatch loss = "PatchD_real" and "PatchD_mix"
             losses.update(patch_losses) # add path_losses into losses dict
 
         metrics = {}  # no metrics to report for the Discriminator iteration
 
         return losses, metrics
 
-    def compute_R1_loss(self):
+    def compute_R1_loss(self, input):
+        real = self.set_input(input)
         losses = {}
         if self.opt.lambda_R1 > 0.0:
-            self.real.requires_grad_()
-            pred_real = self.D(self.real).sum()
+            real.requires_grad_()
+            pred_real = self.D(real).sum()
             grad_real, = torch.autograd.grad(
                 outputs=pred_real,
-                inputs=[self.real],
+                inputs=[real],
                 create_graph=True,
                 retain_graph=True,
             )
@@ -304,9 +299,9 @@ class SwappingAutoencoderModel(BaseModel):
             grad_penalty = 0.0
 
         if self.opt.lambda_patch_R1 > 0.0:
-            real_crop = self.get_random_crops(self.real).detach()
+            real_crop = self.get_random_crops(real).detach()
             real_crop.requires_grad_()
-            target_crop = self.get_random_crops(self.real).detach()
+            target_crop = self.get_random_crops(real).detach()
             target_crop.requires_grad_()
 
             real_feat = self.Dpatch.extract_features(
@@ -337,56 +332,58 @@ class SwappingAutoencoderModel(BaseModel):
 
     def compute_generator_losses(self, input):
         losses, metrics = {}, {}
-        """
         
-        sp, gl = self.E(real)
-        rec = self.G(sp[:B // 2], gl[:B // 2])  # only on B//2 to save memory
-        sp_mix = self.swap(sp)
+        if self.opt.lambda_NCE > 0.0:
+            real, real_A, real_B, _, _ = self.set_input(input, only_real=False)
+        else:
+            real = self.set_input(input)
 
-        if self.opt.crop_size >= 1024:
-        # another momery-saving trick: reduce #outputs to save memory
-        real = real[B // 2:]
-        gl = gl[B // 2:]
-        sp_mix = sp_mix[B // 2:]
-        
-        mix = self.G(sp_mix, gl)
-        """
+        B = real.size(0)
+        sp, gl = self.E(real)
+        rec = self.G(sp, gl)  # only on B//2 to save memory
+        #sp_mix = self.swap(sp)
+
+        # if self.opt.crop_size >= 1024:
+        # # another momery-saving trick: reduce #outputs to save memory
+        # real = real[B // 2:]
+        # gl = gl[B // 2:]
+        # sp_mix = sp_mix[B // 2:]
+    
+        mix = self.G(self.swap(sp), gl)
+      
         #B = self.real.size(0)
         # record the error of the reconstructed images for monitoring purposes
-        self.set_input(input)
-        self.compute_forward()
 
-        metrics["L1_dist"] = self.l1_loss(self.rec, self.real)
+        metrics["L1_dist"] = self.l1_loss(rec, real)
 
         if self.opt.lambda_L1 > 0.0:
             losses["G_L1"] = metrics["L1_dist"] * self.opt.lambda_L1
 
         if self.opt.lambda_GAN > 0.0:
             losses["G_GAN_rec"] = loss.gan_loss(
-                self.D(self.rec),
+                self.D(rec),
                 should_be_classified_as_real=True
             ) * (self.opt.lambda_GAN * 1.0)
 
             losses["G_GAN_mix"] = loss.gan_loss(
-                self.D(self.mix),
+                self.D(mix),
                 should_be_classified_as_real=True
             ) * (self.opt.lambda_GAN * 1.0)
 
         if self.opt.lambda_PatchGAN > 0.0:
             real_feat = self.Dpatch.extract_features(
-                self.get_random_crops(self.real),
+                self.get_random_crops(real),
                 aggregate=self.opt.patch_use_aggregation).detach()
-            mix_feat = self.Dpatch.extract_features(self.get_random_crops(self.mix))
+            mix_feat = self.Dpatch.extract_features(self.get_random_crops(mix))
             # patchGAN loss
             losses["G_mix"] = loss.gan_loss(
                 self.Dpatch.discriminate_features(real_feat, mix_feat),
                 should_be_classified_as_real=True,
             ) * self.opt.lambda_PatchGAN
 
-        # TODO Normalize
         if self.opt.lambda_NCE > 0.0:
-            norm_real_A, norm_real_B = (self.real_A + 1) * 0.5, (self.real_B + 1) * 0.5
-            norm_fake_B, norm_fake_A = (self.mix[:self.B//2].detach() + 1) * 0.5, (self.mix[self.B//2:].detach() + 1) * 0.5
+            norm_real_A, norm_real_B = (real_A + 1) * 0.5, (real_B + 1) * 0.5
+            norm_fake_B, norm_fake_A = (mix[B//2:].detach() + 1) * 0.5, (mix[:B//2].detach() + 1) * 0.5
             losses["G_spatial_loss"] = self.Spatial_Loss(self.netPre, norm_real_A, norm_fake_B, None) * self.opt.lambda_NCE * 0.5 + \
                                         self.Spatial_Loss(self.netPre, norm_real_B, norm_fake_A, None) * self.opt.lambda_NCE * 0.5
 
@@ -434,25 +431,30 @@ class SwappingAutoencoderModel(BaseModel):
         return total_loss / n_layers
     """
 
+    def old_swap(self, x):
+        """ Swaps (or mixes) the ordering of the minibatch """
+        shape = x.shape
+        assert shape[0] % 2 == 0, "Minibatch size must be a multiple of 2"
+        new_shape = [shape[0] // 2, 2] + list(shape[1:])
+        x = x.view(*new_shape)
+        x = torch.flip(x, [1])
+        return x.view(*shape)
 
-    def get_visuals_for_snapshot(self):
+    def get_visuals_for_snapshot(self, input):
+        real = torch.cat([input["real_A"][:2], input["real_B"][:2]], dim=1).view(*([4]+list(input["real_A"].shape[1:]))).to(self.device)
         # if self.opt.isTrain:
         #     # avoid the overhead of generating too many visuals during training
         #     real = real[:2] if self.opt.num_gpus > 1 else real[:4]
-        #real = torch.cat([self.real_A[:2], self.real_B[:2]], dim=0)
-        #sp, gl = self.E(real)
-        # layout = util.resize2d_tensor(util.visualize_spatial_code(sp), real)
-        # rec = self.G(sp, gl)
-        # mix = self.G(sp, self.swap(gl))
-
-        visual_ids_A = torch.randperm(self.real_A.size(0), device=self.real_A.device)[:2]
-        visual_ids_B = visual_ids_A + self.real_A.size(0)
-
-        real = torch.cat([self.real[visual_ids_A], self.real[visual_ids_B]], dim=1).view(*([4]+list(self.real.shape[1:])))
-        sp = torch.cat([self.sp[visual_ids_A], self.sp[visual_ids_B]], dim=1).view(*([4]+list(self.sp.shape[1:])))
+        sp, gl = self.E(real)
         layout = util.resize2d_tensor(util.visualize_spatial_code(sp), real)
-        rec = torch.cat([self.rec[visual_ids_A], self.rec[visual_ids_B]], dim=1).view(*([4]+list(self.rec.shape[1:])))
-        mix = torch.cat([self.mix[visual_ids_A], self.mix[visual_ids_B]], dim=1).view(*([4]+list(self.mix.shape[1:])))
+        rec = self.G(sp, gl)
+        mix = self.G(sp, self.old_swap(gl))
+
+        # visual_ids_A = torch.randperm(self.real_A.size(0), device=self.real_A.device)[:2]
+        # visual_ids_B = visual_ids_A + self.real_A.size(0)
+        # real = torch.cat([real[:2], real[2:]], dim=1).view(*([4]+list(real.shape[1:])))
+        # rec = torch.cat([rec[:2], rec[2:]], dim=1).view(*([4]+list(rec.shape[1:])))
+        # mix = torch.cat([mix[:2], mix[2:]], dim=1).view(*([4]+list(mix.shape[1:])))
 
         visuals = {"real": real, "layout": layout, "rec": rec, "mix": mix}
 
