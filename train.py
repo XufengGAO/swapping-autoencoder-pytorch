@@ -30,18 +30,15 @@ dataset_size = len(dataset)
 opt.dataset = dataset               
 
 # SummaryWriter instance
-if os.path.exists(opt.tb_folder) is False:
-    os.makedirs(opt.tb_folder)
-tb_writer = SummaryWriter(log_dir=opt.tb_folder)
+# if os.path.exists(opt.tb_folder) is False:
+#     os.makedirs(opt.tb_folder)
+# tb_writer = SummaryWriter(log_dir=opt.tb_folder)
 
-print('One epoch includes {} batches'.format(len(dataset.dataloader)))  # one epoch 2040 batches
+print('One epoch includes {} batches'.format(len(dataset.dataloader)))
 
 num_epoch = 200
-opt.total_nimgs = num_epoch * len(dataset.dataloader) * opt.real_batch_size  # train epochs in total
-opt.save_freq = len(dataset.dataloader) * opt.real_batch_size       # save the model per epoch
-opt.evaluation_freq = len(dataset.dataloader) * opt.real_batch_size # evaluate the model per epoch
-opt.print_freq = 100 
-opt.display_freq = 400 
+opt.print_freq = 5 * opt.batch_size
+opt.display_freq = 10 * opt.batch_size
 
 trainOption.print_options(opt)
 if trainOption.isTrain:
@@ -79,33 +76,31 @@ for epoch in range(opt.epoch_count, opt.n_epochs + 1):
         epoch_iter += opt.batch_size
         
         with iter_counter.time_measurement("maintenance"):
-            #if iter_counter.needs_printing():
             if total_iters % opt.print_freq == 0:
-                visualizer.print_current_losses(epoch,
-                                                epoch_iter,
-                                                iter_counter.time_measurements,
-                                                metric_tracker.current_metrics())
-                for k, v in metric_tracker.current_metrics().items():
-                    if k in ['D_mix', 'D_real', 'D_rec', 'PatchD_real', 'PatchD_mix', "D_R1"]:
-                        tb_writer.add_scalars('Image_D Loss', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
-                    if k in ['netF_spatial_loss']:
-                        tb_writer.add_scalars('net_F Loss', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
-                    if k in ['G_GAN_mix', 'G_GAN_rec', 'G_L1', 'G_mix', 'G_spatial_loss']:
-                        tb_writer.add_scalars('G Loss', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
-                    if k in ['D_total', 'G_total']:
-                        tb_writer.add_scalars('G and D', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
+                # visualizer.print_current_losses(epoch,
+                #                                 epoch_iter,
+                #                                 iter_counter.time_measurements,
+                #                                 metric_tracker.current_metrics())
+                # for k, v in metric_tracker.current_metrics().items():
+                #     if k in ['D_mix', 'D_real', 'D_rec', 'PatchD_real', 'PatchD_mix', "D_R1"]:
+                #         tb_writer.add_scalars('Image_D Loss', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
+                #     if k in ['netF_spatial_loss']:
+                #         tb_writer.add_scalars('net_F Loss', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
+                #     if k in ['G_GAN_mix', 'G_GAN_rec', 'G_L1', 'G_mix', 'G_spatial_loss']:
+                #         tb_writer.add_scalars('G Loss', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
+                #     if k in ['D_total', 'G_total']:
+                #         tb_writer.add_scalars('G and D', {k:float(format(v.mean(), '.3f'))}, (iter_counter.steps_so_far//opt.print_freq))
                 visualizer.plot_current_losses(epoch, float(epoch_iter) / dataset_size, metric_tracker.current_metrics())
                         
             if total_iters % opt.display_freq == 0:
                 visuals = optimizer.get_visuals_for_snapshot(cur_data)
                 visualizer.display_current_results(visuals, epoch)
-            
-            # if iter_counter.needs_evaluation():
-            #     metrics = evaluators.evaluate(
-            #         model, dataset, iter_counter.steps_so_far)  
-            #     metric_tracker.update_metrics(metrics, smoothe=False) 
 
-            iter_counter.record_one_iteration() 
+            if total_iters % opt.save_latest_freq == 0:   # cache our latest model every <save_latest_freq> iterations
+                print('fast model (epoch %d, total_iters %d)' % (epoch, total_iters))
+                optimizer.save(epoch, total_iters)
+
+            # iter_counter.record_one_iteration(epoch) 
             
     if epoch % opt.save_epoch_freq == 0:         # save the model per epoch
         print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))

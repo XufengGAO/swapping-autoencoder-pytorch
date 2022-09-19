@@ -4,7 +4,6 @@ import util
 from models import BaseModel
 import models.networks as networks
 import models.networks.loss as loss
-from .networks.patchnce import PatchNCELoss
 
 
 class SwappingAutoencoderModel(BaseModel):
@@ -46,8 +45,8 @@ class SwappingAutoencoderModel(BaseModel):
         parser.add_argument('--use_vgg', type=util.str2bool, default=True, help="feature extractor")
         parser.add_argument('--use_norm', type=util.str2bool, default=True, help="normalize the feature map for FLSeSim")
         parser.add_argument('--learned_attn', type=util.str2bool, default=True, help="use the learnable attention map")
-        parser.add_argument('--augment', type=util.str2bool, default=True, help="use data augmentation for contrastive learning")
-
+        parser.add_argument('--augment', type=util.str2bool, default=False, help="use data augmentation for contrastive learning")
+        parser.add_argument('--use_NCE', type=util.str2bool, default=False)
 
         parser.add_argument('--lambda_NCE', type=float, default=5.0, help='weight for NCE loss: NCE(G(X), X)')
         # parser.add_argument('--lambda_spatial', type=float, default=10.0, help='weight for spatially-correlative loss')
@@ -90,7 +89,7 @@ class SwappingAutoencoderModel(BaseModel):
             self.l1_loss = torch.nn.L1Loss()    # reconstruction loss
 
             # initialize netF
-            if self.opt.lambda_NCE > 0.0:
+            if self.opt.use_NCE:
                 # net F to select better features
                 self.netF = loss.SpatialCorrelativeLoss(self.opt.loss_mode, self.opt.patch_nums, self.opt.nce_patch_size, self.opt.use_norm, 
                                                                     self.opt.learned_attn, gpu_ids=self.gpu_ids, T=self.opt.nce_T)
@@ -104,11 +103,12 @@ class SwappingAutoencoderModel(BaseModel):
 
                 self.nce_layers = [int(i) for i in self.opt.nce_layers.split(',')]
 
-                real = self.set_input(input, only_real=True)
+                real = self.set_input(input, only_real=True).to(self.device)
                 # bs_per_gpu = self.real.size(0) // max(len(self.gpu_ids), 1)
                 # real_per_gpu = self.real[:bs_per_gpu]
-
+                print('real', real.device)
                 _ = self.Spatial_Loss(self.netPre, real, real, None)
+                #_,_= self.compute_generator_losses(input)
 
         # load check_point file
         # if not train or true continue train
@@ -117,29 +117,32 @@ class SwappingAutoencoderModel(BaseModel):
 
         # model to gpu
         if self.opt.num_gpus > 0:
-            self.to("cuda:0")
+            self.to(self.device)
 
 
     def set_input(self, input, only_real=True, with_aug=False):   # return batch tensor
-        if self.opt.use_unaligned:
-            real = torch.cat([input["real_A"], input["real_B"]], dim=0).to(self.device)
+        """
+        input: a dictonary of images
+        only_real: a flag indicating whether to return real images only
+        with_aug: a flag indicating wheter to provide aug images
+        """
+        if self.opt.use_NCE:
+            real = torch.cat([input["real_A"], input["real_B"]], dim=0)    # NCE mode, up night + bottom day
             if not only_real:
                 real_A, real_B, aug_A, aug_B = None, None, None, None
-                real_A = input["real_A"].to(self.device)    # night
-                real_B = input["real_B"].to(self.device)    # day
+                real_A = input["real_A"]    # night
+                real_B = input["real_B"]    # day
 
                 if self.opt.isTrain and with_aug:
-                    aug_A = input['aug_A'].to(self.device)
-                    aug_B = input['aug_B'].to(self.device)
+                    aug_A = input['aug_A']
+                    aug_B = input['aug_B']
                 return real, real_A, real_B, aug_A, aug_B
-            # A = A[torch.randperm(A.size(0))] # shuffle A
-            # B = B[torch.randperm(B.size(0))] # shuffle B
-            # c = list(A.shape)
-            # c[0] = 2*c[0]
-            # A = torch.cat([A, B], dim=1).view(tuple(c))
         else:
-            real = input["real_A"].to(self.device)
-        
+            real = input["real_A"]  # single datasets
+            if "real_B" in input:
+                new_shape = [real.size(0)*2] + list(real.shape[1:])
+                real = torch.cat([real, input["real_B"]], dim=1).view(*new_shape)   # unaligned datasets, cross mode
+
         return real
 
     # def compute_forward(self, input):
@@ -189,16 +192,17 @@ class SwappingAutoencoderModel(BaseModel):
 
         return loss_spatial
 
-    def swap(self, x):
+    def swap(self, x, cross_swap=False):
         """ Swaps (or mixes) the ordering of the minibatch """
-        B = x.size(0)
-        assert B % 2 == 0, "Minibatch size must be a multiple of 2"
+        shape = x.shape
+        assert shape[0] % 2 == 0, "Minibatch size must be a multiple of 2"
         
-        x = torch.cat([x[B//2:], x[:B//2]], dim=0)
-        # new_shape = [shape[0] // 2, 2] + list(shape[1:])
-        # x = x.view(*new_shape)
-        # x = torch.flip(x, [1])
-
+        if self.opt.use_NCE and not cross_swap: # self.opt.use_unaligned and half_swap:
+            x = torch.cat([x[shape[0]//2:], x[:shape[0]//2]], dim=0)
+        else:
+            new_shape = [shape[0] // 2, 2] + list(shape[1:])
+            x = x.view(*new_shape)
+            x = torch.flip(x, [1]).view(*shape)
         return x
 
     def get_random_crops(self, x, crop_window=None):
@@ -333,7 +337,7 @@ class SwappingAutoencoderModel(BaseModel):
     def compute_generator_losses(self, input):
         losses, metrics = {}, {}
         
-        if self.opt.lambda_NCE > 0.0:
+        if self.opt.use_NCE:
             real, real_A, real_B, _, _ = self.set_input(input, only_real=False)
         else:
             real = self.set_input(input)
@@ -381,7 +385,7 @@ class SwappingAutoencoderModel(BaseModel):
                 should_be_classified_as_real=True,
             ) * self.opt.lambda_PatchGAN
 
-        if self.opt.lambda_NCE > 0.0:
+        if self.opt.use_NCE:
             norm_real_A, norm_real_B = (real_A + 1) * 0.5, (real_B + 1) * 0.5
             norm_fake_B, norm_fake_A = (mix[B//2:].detach() + 1) * 0.5, (mix[:B//2].detach() + 1) * 0.5
             losses["G_spatial_loss"] = self.Spatial_Loss(self.netPre, norm_real_A, norm_fake_B, None) * self.opt.lambda_NCE * 0.5 + \
@@ -431,24 +435,20 @@ class SwappingAutoencoderModel(BaseModel):
         return total_loss / n_layers
     """
 
-    def old_swap(self, x):
-        """ Swaps (or mixes) the ordering of the minibatch """
-        shape = x.shape
-        assert shape[0] % 2 == 0, "Minibatch size must be a multiple of 2"
-        new_shape = [shape[0] // 2, 2] + list(shape[1:])
-        x = x.view(*new_shape)
-        x = torch.flip(x, [1])
-        return x.view(*shape)
+ 
 
     def get_visuals_for_snapshot(self, input):
-        real = torch.cat([input["real_A"][:2], input["real_B"][:2]], dim=1).view(*([4]+list(input["real_A"].shape[1:]))).to(self.device)
+        if "real_B" in input:
+            real = torch.cat([input["real_A"][:2], input["real_B"][:2]], dim=1).view(*([4]+list(input["real_A"].shape[1:])))
+        else:
+            real = input["real_A"][:4]
         # if self.opt.isTrain:
         #     # avoid the overhead of generating too many visuals during training
         #     real = real[:2] if self.opt.num_gpus > 1 else real[:4]
         sp, gl = self.E(real)
         layout = util.resize2d_tensor(util.visualize_spatial_code(sp), real)
         rec = self.G(sp, gl)
-        mix = self.G(sp, self.old_swap(gl))
+        mix = self.G(sp, self.swap(gl, cross_swap=True))
 
         # visual_ids_A = torch.randperm(self.real_A.size(0), device=self.real_A.device)[:2]
         # visual_ids_B = visual_ids_A + self.real_A.size(0)
@@ -490,7 +490,7 @@ class SwappingAutoencoderModel(BaseModel):
             if self.opt.lambda_PatchGAN > 0.0:
                 Dparams += list(self.Dpatch.parameters())
             return Dparams
-        elif mode == 'netF' and self.opt.lambda_NCE > 0.0:
+        elif mode == 'netF' and self.opt.use_NCE:
             return list(self.netF.parameters())
 
     def per_gpu_initialize(self):

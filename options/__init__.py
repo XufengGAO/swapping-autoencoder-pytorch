@@ -59,7 +59,7 @@ class BaseOptions():
         # training parameters
         parser.add_argument('--epoch_count', type=int, default=1, help='the starting epoch count, we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>, ...')
         parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs with the initial learning rate')
-        
+        parser.add_argument('--save_latest_freq', type=int, default=5000, help='frequency of saving the latest results')
         return parser
 
     def gather_options(self, command=None): # gather all arguments

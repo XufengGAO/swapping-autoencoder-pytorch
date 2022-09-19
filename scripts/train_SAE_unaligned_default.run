@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --cpus-per-task=20
-#SBATCH --job-name=unaligned
+#SBATCH --job-name=SAEdefault
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
 #SBATCH --partition=gpu
@@ -10,8 +10,8 @@
 #SBATCH --mem=350GB
 #SBATCH --time=12:00:00
 #SBATCH --chdir /scratch/izar/xugao/trainLogs
-#SBATCH --output=/scratch/izar/xugao/trainLogs/unaligned_3_%j.out
-#SBATCH --error=/scratch/izar/xugao/trainLogs/unaligned_3_%j.err
+#SBATCH --output=/scratch/izar/xugao/trainLogs/SAE/default_5_%j.out
+#SBATCH --error=/scratch/izar/xugao/trainLogs/SAE/default_5_%j.err
 
 module load gcc cuda
 echo "hello from 'hostname'"
@@ -20,7 +20,10 @@ source /home/xugao/venvs/venv-for-demo/bin/activate
 
 cd /home/xugao/gitRepo/swapping-autoencoder-pytorch
 
-python -m experiments --name nightVision --cmd train --id nightVision_unaligned
+python -m experiments \
+--name nightVision \
+--cmd train \
+--id SAE_unaligned_default
 
 echo "bye from 'hostname'"
 

@@ -44,7 +44,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         )
 
         # TODO lr and beta values for netF
-        if self.opt.lambda_NCE > 0.0:
+        if self.opt.use_NCE:
             self.Fparams = self.model.get_parameters_for_mode("netF")
             self.optimizer_F = torch.optim.Adam(
                 self.Fparams, lr=opt.lr, betas=(opt.beta1, opt.beta2)
@@ -80,7 +80,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         # self.model(data_i, command="set_input" )
         # self.model(command="compute_forward")
 
-        if self.opt.lambda_NCE > 0.0:
+        if self.opt.use_NCE:
             spatial_loss = self.train_netF_one_step(data_i)
 
         if self.toggle_training_mode() == "generator":
@@ -88,7 +88,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         else:
             losses = self.train_generator_one_step(data_i)
 
-        if self.opt.lambda_NCE > 0.0:
+        if self.opt.use_NCE:
             losses['netF_spatial_loss'] = spatial_loss
 
         return util.to_numpy(losses)
@@ -109,7 +109,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
         self.set_requires_grad(self.Dparams, False)
         self.set_requires_grad(self.Gparams, True)  # only record G's gradient
 
-        if self.opt.lambda_NCE > 0.0:
+        if self.opt.use_NCE:
             self.set_requires_grad(self.Fparams, False)
         
         
@@ -130,7 +130,7 @@ class SwappingAutoencoderOptimizer(BaseOptimizer):
             return {}
         self.set_requires_grad(self.Dparams, True)  # only record D's gradients
         self.set_requires_grad(self.Gparams, False)
-        if self.opt.lambda_NCE > 0.0:
+        if self.opt.use_NCE:
             self.set_requires_grad(self.Fparams, False)
 
         self.discriminator_iter_counter += 1

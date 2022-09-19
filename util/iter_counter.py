@@ -14,7 +14,7 @@ class IterationCounter():
         parser.add_argument("--evaluation_freq", default=50000, type=int)   
         parser.add_argument("--print_freq", default=480, type=int)         
         parser.add_argument("--display_freq", default=1600, type=int) 
-        parser.add_argument("--save_epoch_freq", default=2, type=int) 
+        parser.add_argument("--save_epoch_freq", default=5, type=int) 
         return parser
 
     def __init__(self, opt):
@@ -41,9 +41,10 @@ class IterationCounter():
 
         if automatically_find_resume_iter:  # resume from file
             try:
-                self.epoch_so_far, self.steps_so_far, self.real_steps = np.loadtxt(
+                self.epoch_so_far, self.steps_so_far = np.loadtxt(
                     self.iter_record_path, delimiter=',', dtype=int)
-                print('Resuming from iteration %d and real steps at %d' % (self.steps_so_far, self.real_steps))
+                self.steps_so_far = 0
+                print('Resuming from iteration %d' % (self.steps_so_far))
             except Exception:
                 print('Could not load iteration record at %s. '
                       'Starting from beginning.' % self.iter_record_path)
@@ -55,10 +56,10 @@ class IterationCounter():
         else:  # from begining
             self.steps_so_far = 0
 
-    def record_one_iteration(self):
+    def record_one_iteration(self,epoch):
         if self.needs_saving():
             np.savetxt(self.iter_record_path,
-                       [self.epoch_so_far, self.steps_so_far], delimiter=',', fmt='%d')
+                       [epoch, self.steps_so_far], delimiter=',', fmt='%d')
             print("Saved current iter count at %s" % self.iter_record_path)
         self.steps_so_far += self.batch_size
 

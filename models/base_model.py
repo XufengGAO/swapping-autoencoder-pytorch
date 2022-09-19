@@ -51,7 +51,11 @@ class BaseModel(torch.nn.Module):
             loaddir = os.path.join(self.opt.checkpoints_dir, self.opt.pretrained_name)
         else:
             loaddir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
-        checkpoint_name = "%s_checkpoint.pth" % self.opt.resume_iter
+        if self.opt.resume_iter == "latest":
+            checkpoint_name = "%s_checkpoint.pth" % self.opt.resume_iter
+        else:
+            checkpoint_name = "%sepoch_checkpoint.pth" % self.opt.resume_iter
+
         checkpoint_path = os.path.join(loaddir, checkpoint_name)
         if not os.path.exists(checkpoint_path):
             print("\n\ncheckpoint %s does not exist!" % checkpoint_path)

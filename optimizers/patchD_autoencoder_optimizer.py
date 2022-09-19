@@ -1,3 +1,4 @@
+from asyncio import FastChildWatcher
 import torch
 from models import MultiGPUModelWrapper
 from optimizers.base_optimizer import BaseOptimizer
