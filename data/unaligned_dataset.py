@@ -4,7 +4,7 @@ from data.image_folder import make_dataset
 from PIL import Image
 import torchvision.transforms as transforms
 import random
-
+import json
 
 class UnalignedDataset(BaseDataset):
     """
@@ -35,16 +35,17 @@ class UnalignedDataset(BaseDataset):
            and os.path.exists(os.path.join(opt.dataroot, "valA")):
             self.dir_A = os.path.join(opt.dataroot, "testA")
             self.dir_B = os.path.join(opt.dataroot, "testB")
-
-        self.A_paths = sorted(make_dataset(self.dir_A))   # load images from '/path/to/data/trainA'
+        
+        self.A_paths = sorted(make_dataset(self.dir_A))
         random.Random(0).shuffle(self.A_paths)
-        self.B_paths = sorted(make_dataset(self.dir_B))    # load images from '/path/to/data/trainB'
+        self.B_paths = sorted(make_dataset(self.dir_B))
         random.Random(0).shuffle(self.B_paths)
+
         self.A_size = len(self.A_paths)  # get the size of dataset A
         self.B_size = len(self.B_paths)  # get the size of dataset B
-
         self.transform = get_transform(opt,  grayscale=False, convert=False)
-        if self.opt.isTrain and opt.augment:
+
+        if self.opt.isTrain and opt.augment and opt.use_NCE:
             self.transform_aug = transforms.Compose(
                 [transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.3),
                  transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -52,6 +53,7 @@ class UnalignedDataset(BaseDataset):
             )
         else:
             self.transform_aug = None
+            
         self.transform_tensor = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
         self.B_indices = list(range(self.B_size))

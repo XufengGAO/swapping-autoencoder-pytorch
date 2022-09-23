@@ -435,8 +435,6 @@ class SwappingAutoencoderModel(BaseModel):
         return total_loss / n_layers
     """
 
- 
-
     def get_visuals_for_snapshot(self, input):
         if "real_B" in input:
             real = torch.cat([input["real_A"][:2], input["real_B"][:2]], dim=1).view(*([4]+list(input["real_A"].shape[1:])))
@@ -457,6 +455,18 @@ class SwappingAutoencoderModel(BaseModel):
         # mix = torch.cat([mix[:2], mix[2:]], dim=1).view(*([4]+list(mix.shape[1:])))
 
         visuals = {"real": real, "layout": layout, "rec": rec, "mix": mix}
+
+        return visuals
+
+    def get_current_visuals(self, input):
+    
+        real = torch.cat([input["real_A"], input["real_B"]], dim=0)
+
+        sp, gl = self.E(real)
+        rec = self.G(sp[0], gl[0])
+        mix = self.G(sp[0], gl[1])
+
+        visuals = {"real_A": real[0], "real_B": real[1], "rec_A": rec, "fake_B": mix}
 
         return visuals
 

@@ -69,7 +69,7 @@ class SimpleSwappingEvaluator(BaseEvaluator):
             #images.append(output_image.squeeze(0).cpu())
             print('output', type(output_image), output_image.shape)
             output_image = transforms.ToPILImage()(
-                (output_image[0].clamp(-1.0, 1.0) + 1.0) * 0.5)
+                (output_image[0].cpu().clamp(-1.0, 1.0) + 1.0) * 0.5)
 
             output_name = "%.2f_%s_%s.png" % (
                 alpha,

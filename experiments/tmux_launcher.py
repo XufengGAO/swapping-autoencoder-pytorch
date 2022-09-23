@@ -92,7 +92,7 @@ class TmuxLauncher():
 
     def test_commands(self):
         opts = self.test_options()
-        return ["python test.py " + str(opt) for opt in opts]
+        return ["python test_fid.py " + str(opt) for opt in opts]
 
     def options(self):  # See child class for specific implementation
         return []

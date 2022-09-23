@@ -95,41 +95,60 @@ def tile_images(imgs, picturesPerRow=4):
 
 # Converts a Tensor into a Numpy array
 # |imtype|: the desired type of the converted numpy array
-def tensor2im(image_tensor, imtype=np.uint8, normalize=True, tile=2):
-    if isinstance(image_tensor, list):
-        image_numpy = []
-        for i in range(len(image_tensor)):
-            image_numpy.append(tensor2im(image_tensor[i], imtype, normalize))
-        return image_numpy
+# def tensor2im(image_tensor, imtype=np.uint8, normalize=True, tile=2):
+#     if isinstance(image_tensor, list):
+#         image_numpy = []
+#         for i in range(len(image_tensor)):
+#             image_numpy.append(tensor2im(image_tensor[i], imtype, normalize))
+#         return image_numpy
 
-    if len(image_tensor.shape) == 4:
-        # transform each image in the batch
-        images_np = []
-        for b in range(image_tensor.shape[0]):
-            one_image = image_tensor[b]
-            one_image_np = tensor2im(one_image)
-            images_np.append(one_image_np.reshape(1, *one_image_np.shape))
-        images_np = np.concatenate(images_np, axis=0)
-        if tile is not False:
-            tile = max(min(images_np.shape[0] // 2, 4), 1) if tile is True else tile
-            images_tiled = tile_images(images_np, picturesPerRow=tile)
-            return images_tiled
+#     if len(image_tensor.shape) == 4:
+#         # transform each image in the batch
+#         images_np = []
+#         for b in range(image_tensor.shape[0]):
+#             one_image = image_tensor[b]
+#             one_image_np = tensor2im(one_image)
+#             images_np.append(one_image_np.reshape(1, *one_image_np.shape))
+#         images_np = np.concatenate(images_np, axis=0)
+#         if tile is not False:
+#             tile = max(min(images_np.shape[0] // 2, 4), 1) if tile is True else tile
+#             images_tiled = tile_images(images_np, picturesPerRow=tile)
+#             return images_tiled
+#         else:
+#             return images_np
+
+#     if len(image_tensor.shape) == 2:
+#         assert False
+#         #imagce_tensor = image_tensor.unsqueeze(0)
+#     image_numpy = image_tensor.detach().cpu().numpy() if type(image_tensor) is not np.ndarray else image_tensor
+#     if normalize:
+#         image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
+#     else:
+#         image_numpy = np.transpose(image_numpy, (1, 2, 0)) * 255.0
+#     image_numpy = np.clip(image_numpy, 0, 255)
+#     if image_numpy.shape[2] == 1:
+#         image_numpy = np.repeat(image_numpy, 3, axis=2)
+#     return image_numpy.astype(imtype)
+
+def tensor2im(input_image, imtype=np.uint8):
+    """"Converts a Tensor array into a numpy image array.
+
+    Parameters:
+        input_image (tensor) --  the input image tensor array
+        imtype (type)        --  the desired type of the converted numpy array
+    """
+    if not isinstance(input_image, np.ndarray):
+        if isinstance(input_image, torch.Tensor):  # get the data from a variable
+            image_tensor = input_image.data
         else:
-            return images_np
-
-    if len(image_tensor.shape) == 2:
-        assert False
-        #imagce_tensor = image_tensor.unsqueeze(0)
-    image_numpy = image_tensor.detach().cpu().numpy() if type(image_tensor) is not np.ndarray else image_tensor
-    if normalize:
-        image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
-    else:
-        image_numpy = np.transpose(image_numpy, (1, 2, 0)) * 255.0
-    image_numpy = np.clip(image_numpy, 0, 255)
-    if image_numpy.shape[2] == 1:
-        image_numpy = np.repeat(image_numpy, 3, axis=2)
+            return input_image
+        image_numpy = image_tensor[0].clamp(-1.0, 1.0).cpu().float().numpy()  # convert it into a numpy array
+        if image_numpy.shape[0] == 1:  # grayscale to RGB
+            image_numpy = np.tile(image_numpy, (3, 1, 1))
+        image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0  # post-processing: tranpose and scaling
+    else:  # if it is a numpy array, do nothing
+        image_numpy = input_image
     return image_numpy.astype(imtype)
-
 
 def toPILImage(images, tile=None):
     if isinstance(images, list):
@@ -178,7 +197,6 @@ def save_image(image_numpy, image_path, aspect_ratio=1.0):
 
     image_pil = Image.fromarray(image_numpy)
     h, w, _ = image_numpy.shape
-
     if aspect_ratio is None:
         pass
     elif aspect_ratio > 1.0:

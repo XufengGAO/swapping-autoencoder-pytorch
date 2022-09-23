@@ -119,14 +119,24 @@ class Launcher(TmuxLauncher):
                 continue_train=True,
                 epoch_count=11
             ),
+            opt.specify(
+                name="SAE_unaligned_default",
+                dataroot="/home/bozorgta/xugao/gitLocal/testsets/clean_day_images",
+                use_unaligned=True,
+                dataset_mode="unaligned",
+                # netE_num_downsampling_sp=2,
+                tb_folder = "./runs"
+            ), 
         ]
 
     def train_options(self):
         common_options = self.options()
-        return [opt for opt in common_options]
+        return [opt.speficy(
+            continue_train=True,
+        ) for opt in common_options]
 
     def test_options(self):
-        opt = self.options()[-2]
+        opt = self.options()[-1]
         return [
             opt.tag("simple_swapping").specify(
                 num_gpus=1,
@@ -140,8 +150,6 @@ class Launcher(TmuxLauncher):
                 #input_texture_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/testphotos/nightVision/val_night/1645596786082.jpg",
                 input_texture_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/datasets/nightVisionDatasets/day_images/3891.jpg",
                 input_structure_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/testphotos/nightVision/val_night/1645596068345.jpg",
-                # alpha == 1.0 corresponds to full swapping.
-                # 0 < alpha < 1 means interpolation
                 texture_mix_alpha=1.0,
             ),
             # Simple interpolation images for quick testing
@@ -156,5 +164,16 @@ class Launcher(TmuxLauncher):
                 input_texture_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/datasets/nightVisionDatasets/day_images/3891.jpg",
                 input_structure_image ="/home/xugao/gitRepo/swapping-autoencoder-pytorch/testphotos/nightVision/val_night/1645596068345.jpg",
                 texture_mix_alpha='0.0 0.25 0.5 0.75 1.0',
+            ),
+            opt.tag("day_swapping").specify(
+                num_gpus=1,
+                batch_size=1,
+                result_dir="./results/",
+                preprocess="resize", load_size=256, crop_size=256,
+                evaluation_metrics="none",
+                # Specify the two images here.
+                # input_structure_image ="/home/bozorgta/xugao/gitLocal/testsets/night_images/1645247640.713531.jpg",
+                # input_texture_image ="/home/bozorgta/xugao/gitLocal/testsets/clean_day_images/31.jpg",
+                # texture_mix_alpha=1.0,
             )
         ]
